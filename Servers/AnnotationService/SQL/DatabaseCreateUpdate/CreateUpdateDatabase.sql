@@ -1,9 +1,9 @@
 /**** You need to replace the following templates to use this script ****/
-/**** RABBIT = Name of the database  */
+/**** RPC1 = Name of the database  */
 /**** {DATABASE_DIRECTORY} = Directory Datbase lives in if it needs to be created, with the trailing slash i.e. C:\Database\
 */
 DECLARE @DATABASE_NAME VARCHAR(50)
-SET @DATABASE_NAME = 'RABBIT'
+SET @DATABASE_NAME = 'RPC1'
 DECLARE @DATABASE_DIRECTORY VARCHAR(50)
 SET @DATABASE_DIRECTORY = 'C:\Database\'
 
@@ -29,7 +29,7 @@ BEGIN
 END
 	
 CREATE TABLE #UpdateVars ([Version] VARCHAR(100));
-INSERT INTO #UpdateVars Values (N'RABBIT');
+INSERT INTO #UpdateVars Values (N'RPC1');
 
 DECLARE @db_id VARCHAR(100);
 SET @db_id = db_id(@DATABASE_NAME)
@@ -42,50 +42,50 @@ BEGIN
 	print N'Database does not exist, creating...' 
 	
 	declare @Path varchar(100)
-	set @Path = N'C:\Database\RABBIT\'
+	set @Path = N'C:\Database\RPC1\'
 	EXEC master.dbo.xp_create_subdir @Path
 	
-	/****** Object:  Database [RABBIT]    Script Date: 06/14/2011 13:13:50 ******/
-	CREATE DATABASE [RABBIT] ON  PRIMARY 
-		( NAME = N'RABBIT', FILENAME = N'C:\Database\RABBIT\RABBIT.mdf' , SIZE = 4096KB , MAXSIZE = UNLIMITED, FILEGROWTH = 1024KB )
+	/****** Object:  Database [RPC1]    Script Date: 06/14/2011 13:13:50 ******/
+	CREATE DATABASE [RPC1] ON  PRIMARY 
+		( NAME = N'RPC1', FILENAME = N'C:\Database\RPC1\RPC1.mdf' , SIZE = 4096KB , MAXSIZE = UNLIMITED, FILEGROWTH = 1024KB )
 		 LOG ON 
-		( NAME = N'NEITZTEMPORALMONKEY_log', FILENAME = N'C:\Database\RABBIT\NEITZTEMPORALMONKEY_log.ldf' , SIZE = 4096KB , MAXSIZE = 2048GB , FILEGROWTH = 10%)
+		( NAME = N'RPC1_log', FILENAME = N'C:\Database\RPC1\RPC1_log.ldf' , SIZE = 4096KB , MAXSIZE = 2048GB , FILEGROWTH = 10%)
 		
-	ALTER DATABASE [RABBIT] SET COMPATIBILITY_LEVEL = 100
+	ALTER DATABASE [RPC1] SET COMPATIBILITY_LEVEL = 100
 	
 	IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
 	begin
-		EXEC [RABBIT].[dbo].[sp_fulltext_database] @action = 'enable'
+		EXEC [RPC1].[dbo].[sp_fulltext_database] @action = 'enable'
 	end
 	
-	ALTER DATABASE [RABBIT] SET ANSI_NULL_DEFAULT OFF
-	ALTER DATABASE [RABBIT] SET ANSI_NULLS OFF
-	ALTER DATABASE [RABBIT] SET ANSI_PADDING ON
-	ALTER DATABASE [RABBIT] SET ANSI_WARNINGS OFF
-	ALTER DATABASE [RABBIT] SET ARITHABORT OFF
-	ALTER DATABASE [RABBIT] SET AUTO_CLOSE OFF
-	ALTER DATABASE [RABBIT] SET AUTO_CREATE_STATISTICS ON
-	ALTER DATABASE [RABBIT] SET AUTO_SHRINK OFF
-	ALTER DATABASE [RABBIT] SET AUTO_UPDATE_STATISTICS ON
-	ALTER DATABASE [RABBIT] SET CURSOR_CLOSE_ON_COMMIT OFF
-	ALTER DATABASE [RABBIT] SET CURSOR_DEFAULT  GLOBAL
-	ALTER DATABASE [RABBIT] SET CONCAT_NULL_YIELDS_NULL OFF
-	ALTER DATABASE [RABBIT] SET NUMERIC_ROUNDABORT OFF
-	ALTER DATABASE [RABBIT] SET QUOTED_IDENTIFIER OFF
-	ALTER DATABASE [RABBIT] SET RECURSIVE_TRIGGERS OFF
-	ALTER DATABASE [RABBIT] SET  DISABLE_BROKER
-	ALTER DATABASE [RABBIT] SET AUTO_UPDATE_STATISTICS_ASYNC OFF
-	ALTER DATABASE [RABBIT] SET DATE_CORRELATION_OPTIMIZATION OFF
-	ALTER DATABASE [RABBIT] SET TRUSTWORTHY OFF
-	ALTER DATABASE [RABBIT] SET ALLOW_SNAPSHOT_ISOLATION OFF
-	ALTER DATABASE [RABBIT] SET PARAMETERIZATION SIMPLE
-	ALTER DATABASE [RABBIT] SET READ_COMMITTED_SNAPSHOT OFF
-	ALTER DATABASE [RABBIT] SET HONOR_BROKER_PRIORITY OFF
-	ALTER DATABASE [RABBIT] SET  READ_WRITE
-	ALTER DATABASE [RABBIT] SET RECOVERY SIMPLE
-	ALTER DATABASE [RABBIT] SET  MULTI_USER
-	ALTER DATABASE [RABBIT] SET PAGE_VERIFY CHECKSUM
-	ALTER DATABASE [RABBIT] SET DB_CHAINING OFF
+	ALTER DATABASE [RPC1] SET ANSI_NULL_DEFAULT OFF
+	ALTER DATABASE [RPC1] SET ANSI_NULLS OFF
+	ALTER DATABASE [RPC1] SET ANSI_PADDING ON
+	ALTER DATABASE [RPC1] SET ANSI_WARNINGS OFF
+	ALTER DATABASE [RPC1] SET ARITHABORT OFF
+	ALTER DATABASE [RPC1] SET AUTO_CLOSE OFF
+	ALTER DATABASE [RPC1] SET AUTO_CREATE_STATISTICS ON
+	ALTER DATABASE [RPC1] SET AUTO_SHRINK OFF
+	ALTER DATABASE [RPC1] SET AUTO_UPDATE_STATISTICS ON
+	ALTER DATABASE [RPC1] SET CURSOR_CLOSE_ON_COMMIT OFF
+	ALTER DATABASE [RPC1] SET CURSOR_DEFAULT  GLOBAL
+	ALTER DATABASE [RPC1] SET CONCAT_NULL_YIELDS_NULL OFF
+	ALTER DATABASE [RPC1] SET NUMERIC_ROUNDABORT OFF
+	ALTER DATABASE [RPC1] SET QUOTED_IDENTIFIER OFF
+	ALTER DATABASE [RPC1] SET RECURSIVE_TRIGGERS OFF
+	ALTER DATABASE [RPC1] SET  DISABLE_BROKER
+	ALTER DATABASE [RPC1] SET AUTO_UPDATE_STATISTICS_ASYNC OFF
+	ALTER DATABASE [RPC1] SET DATE_CORRELATION_OPTIMIZATION OFF
+	ALTER DATABASE [RPC1] SET TRUSTWORTHY OFF
+	ALTER DATABASE [RPC1] SET ALLOW_SNAPSHOT_ISOLATION OFF
+	ALTER DATABASE [RPC1] SET PARAMETERIZATION SIMPLE
+	ALTER DATABASE [RPC1] SET READ_COMMITTED_SNAPSHOT OFF
+	ALTER DATABASE [RPC1] SET HONOR_BROKER_PRIORITY OFF
+	ALTER DATABASE [RPC1] SET  READ_WRITE
+	ALTER DATABASE [RPC1] SET RECOVERY SIMPLE
+	ALTER DATABASE [RPC1] SET  MULTI_USER
+	ALTER DATABASE [RPC1] SET PAGE_VERIFY CHECKSUM
+	ALTER DATABASE [RPC1] SET DB_CHAINING OFF
 	
 	print N'Created Database...' 
 	INSERT INTO #UpdateVars Values (DB_ID(N'CreateTables'));
@@ -93,7 +93,7 @@ END
 
 GO
 
-USE [RABBIT]
+USE [RPC1]
 GO
 
 --Need to specify database owner before enabling change tracking
@@ -282,7 +282,7 @@ BEGIN
 	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'VolumeY is the location in volume space.  It exists so that data analysis code does not need to implement transforms' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'VolumeY'
 	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Set to true if this location is the edge of a structure and cannot be extended.' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'Terminal'
 	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'This bit is set if the structure leaves the volume at this location' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'OffEdge'
-	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'0 = Point, 1 = Circle, 2 =' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'RABBIT'
+	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'0 = Point, 1 = Circle, 2=Ellipse, 3 =PolyLine, 4=Polygon' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'TypeCode'
 	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Date the location was last modified' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'LastModified'
 	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Date the location was created' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'Created'
 	EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Last username to modify the row' , @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'Location', @level2type=N'COLUMN',@level2name=N'Username'
@@ -1106,15 +1106,15 @@ END
 */  
 GO
 
-Use [RABBIT]
+Use [RPC1]
 GO
   
 DECLARE @compat_level int
-SET @compat_level = (SELECT compatibility_level FROM sys.databases WHERE name = 'RABBIT')
+SET @compat_level = (SELECT compatibility_level FROM sys.databases WHERE name = 'RPC1')
 IF(@compat_level < 120)
 BEGIN
 	print N'Setting the database compatability level to SQL 2014'
-	ALTER DATABASE [RABBIT] SET COMPATIBILITY_LEVEL = 120  
+	ALTER DATABASE [RPC1] SET COMPATIBILITY_LEVEL = 120  
 END
 GO
 
@@ -2514,7 +2514,6 @@ end
 		    N'Create Spatial Indicies' ,getDate(),User_ID())
 	 COMMIT TRANSACTION twentyeight
 	end
-	go
 
 	if(not(exists(select (1) from DBVersion where DBVersionID = 29)))
 	begin
@@ -2529,7 +2528,7 @@ end
  					Select * from LocationLink
 						 WHERE (A in 
 						(SELECT L.ID
-						  FROM [Rabbit].[dbo].[Location] L
+						  FROM [RPC1].[dbo].[Location] L
 						  INNER JOIN 
 						   (SELECT ID, TYPEID
 							FROM Structure
@@ -2538,7 +2537,7 @@ end
 						  OR
 						  (B in 
 						(SELECT L.ID
-						  FROM [Rabbit].[dbo].[Location] L
+						  FROM [RPC1].[dbo].[Location] L
 						  INNER JOIN 
 						   (SELECT ID, TYPEID
 							FROM Structure
@@ -2557,7 +2556,6 @@ end
 		    N'Create Function for SelectStructureLinks for easy OData use'  ,getDate(),User_ID())
 	 COMMIT TRANSACTION twentynine
 	end
-	go
 
 	if(not(exists(select (1) from DBVersion where DBVersionID = 30)))
 	begin
@@ -2974,7 +2972,6 @@ end
 		    N'Create Functions for spatial queries'  ,getDate(),User_ID())
 	 COMMIT TRANSACTION thirtyone
 	end
-	go
 
 	if(not(exists(select (1) from DBVersion where DBVersionID = 32)))
 	begin
@@ -5366,7 +5363,7 @@ end
 
 	 COMMIT TRANSACTION fifty
 	end
-
+	
 	if(not(exists(select (1) from DBVersion where DBVersionID = 51)))
 	begin
      print N'Convert Radius to computed column and add a new width property for use with lines'
@@ -5376,7 +5373,7 @@ end
 	  
 	 --ALTER TABLE Location DROP CONSTRAINT chk_Location_Width
 
-	 UPDATE Location SET Width = Radius FROM Location WHERE TypeCode != 1
+	 EXEC('UPDATE Location SET Width = Radius FROM Location WHERE TypeCode != 1')
 	 
 	 if(@@error <> 0)
 		 begin
@@ -5384,11 +5381,11 @@ end
 		   RETURN
 		 end
 	 
-	 ALTER TABLE Location
+	  EXEC('ALTER TABLE Location
 		ADD CONSTRAINT chk_Location_Width CHECK (
 			(TypeCode = 1 AND Width IS NULL) OR
 			(TypeCode != 1 AND Width IS NOT NULL)
-		) 
+		) ')
 
 	  if(@@error <> 0)
 		 begin
@@ -5396,7 +5393,7 @@ end
 		   RETURN
 		 end
 
-      ALTER TABLE Location DROP CONSTRAINT DF_Location_Radius
+      EXEC(' ALTER TABLE Location DROP CONSTRAINT DF_Location_Radius ')
 
 	  if(@@error <> 0)
 		 begin
@@ -5404,7 +5401,7 @@ end
 		   RETURN
 		 end
 
-	  ALTER TABLE Location DROP COLUMN Radius
+	  EXEC( ' ALTER TABLE Location DROP COLUMN Radius ')
 
 	  if(@@error <> 0)
 		 begin
@@ -5412,12 +5409,12 @@ end
 		   RETURN
 		 end
 	  
-	  ALTER TABLE Location ADD Radius as  
+	  EXEC(' ALTER TABLE Location ADD Radius as  
 		CASE MosaicShape.STDimension()
 			WHEN 0 THEN 0
 			WHEN 1 THEN MosaicShape.STLength() / 2.0
 			WHEN 2 THEN SQRT( MosaicShape.STArea() / PI() )
-		END PERSISTED NOT NULL
+		END PERSISTED NOT NULL ')
 
 	 if(@@error <> 0)
 		 begin
@@ -5439,14 +5436,15 @@ end
      print N'Add table listing which structures are allowed to be linked'
      BEGIN TRANSACTION fiftytwo
 	   
-	  -- ALTER TABLE Location DROP COLUMN Width 
+	   -- ALTER TABLE Location DROP COLUMN Width 
 	  CREATE TABLE [dbo].[PermittedStructureLink](
-		[SourceType] [bigint] NOT NULL,
-		[TargetType] [bigint] NOT NULL
+		[SourceTypeID] [bigint] NOT NULL,
+		[TargetTypeID] [bigint] NOT NULL,
+		[Bidirectional] [BIT] NOT NULL,
 		CONSTRAINT [PK_PermittedStructureLink] PRIMARY KEY CLUSTERED 
 	(
-		[SourceType] ASC,
-		[TargetType] ASC
+		[SourceTypeID] ASC,
+		[TargetTypeID] ASC
 	)WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
 	) ON [PRIMARY]
 
@@ -5456,10 +5454,10 @@ end
 		   RETURN
 		 end
 
-	ALTER TABLE [dbo].[PermittedStructureLink]  WITH CHECK ADD  CONSTRAINT [FK_PermittedStructureLink_SourceType] FOREIGN KEY([SourceType])
+	ALTER TABLE [dbo].[PermittedStructureLink]  WITH CHECK ADD  CONSTRAINT [FK_PermittedStructureLink_SourceType] FOREIGN KEY([SourceTypeID])
 	REFERENCES [dbo].[StructureType] ([ID])
 
-	ALTER TABLE [dbo].[PermittedStructureLink]  WITH CHECK ADD  CONSTRAINT [FK_PermittedStructureLink_TargetType] FOREIGN KEY([TargetType])
+	ALTER TABLE [dbo].[PermittedStructureLink]  WITH CHECK ADD  CONSTRAINT [FK_PermittedStructureLink_TargetType] FOREIGN KEY([TargetTypeID])
 	REFERENCES [dbo].[StructureType] ([ID])
 
 
@@ -5513,6 +5511,1613 @@ end
 	 COMMIT TRANSACTION fiftythree
 	end
 
+	
+	if(not(exists(select (1) from DBVersion where DBVersionID = 54)))
+	begin
+     print N'Create ufn for measuring structure area'
+     BEGIN TRANSACTION fiftyfour
+
+	 EXEC('
+	 CREATE FUNCTION ufnStructureArea
+	(
+		-- Add the parameters for the function here
+		@StructureID bigint
+	)
+	RETURNS float
+	AS
+	BEGIN
+		declare @Area float
+		declare @AreaScalar float
+		--Measures the area of the PSD
+		set @AreaScalar = dbo.XYScale() * dbo.ZScale()
+
+	
+		select top 1 @Area = sum(MosaicShape.STLength()) * @AreaScalar from Location 
+		where ParentID = @StructureID
+		group by ParentID
+	  
+		-- Return the result of the function
+		RETURN @Area
+
+	END
+	')
+
+	Grant EXECUTE on ufnStructureArea to public
 	 
+
+	  INSERT INTO DBVersion values (54, 
+		   N'Create ufn for measuring structure area',getDate(),User_ID())
+
+	 COMMIT TRANSACTION fiftyfour
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 55)))
+	begin
+     print N'Create stored procedure for recursively selecting child IDs for a structure'
+     BEGIN TRANSACTION fiftyfive
+
+	 EXEC('
+		CREATE PROCEDURE [dbo].[RecursiveSelectChildStructureIDs]
+						-- Add the parameters for the stored procedure here
+						@IDs integer_list READONLY
+			AS
+			BEGIN 	 
+				DECLARE @NumSeedStructures int
+				DECLARE @SeedStructures integer_list
+				DECLARE @ChildStructures integer_list 
+
+				insert into @SeedStructures select ID from @IDs 
+
+				select @NumSeedStructures=count(ID) from @SeedStructures
+
+				while @NumSeedStructures > 0
+				BEGIN
+					DECLARE @NewChildStructures integer_list 
+					insert into @NewChildStructures
+						select distinct Child.ID from Structure Child
+							inner join @SeedStructures Parents on Parents.ID = Child.ParentID
+
+					delete from @SeedStructures
+					insert into @SeedStructures select ID from @NewChildStructures
+					select @NumSeedStructures=count(ID) from @SeedStructures
+
+					insert into @ChildStructures select ID from @NewChildStructures
+					delete from @NewChildStructures
+				END
+
+				select ID from @ChildStructures
+			END
+	')
+
+	Grant EXECUTE on RecursiveSelectChildStructureIDs to public
+	  
+	  INSERT INTO DBVersion values (55, 
+		   N'Create stored procedure for recursively selecting child IDs for a structure',getDate(),User_ID())
+
+	 COMMIT TRANSACTION fiftyfive
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 56)))
+	begin
+     print N'Create ufn for measuring structure volume'
+     BEGIN TRANSACTION fiftysix
+
+	 EXEC('
+		 CREATE FUNCTION ufnStructureVolume
+		(
+			-- Add the parameters for the function here
+			@StructureID bigint
+		)
+		RETURNS float
+		AS
+		BEGIN
+			declare @Area float
+			declare @AreaScalar float
+			--Measures the area of the PSD
+			set @AreaScalar = dbo.XYScale() * dbo.ZScale()
+
+			select top 1 @Area = sum(MosaicShape.STArea()) * @AreaScalar from Location 
+			where ParentID = @StructureID
+			group by ParentID
+	  
+			-- Return the result of the function
+			RETURN @Area
+
+		END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		Grant EXECUTE on ufnStructureVolume to public
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	  INSERT INTO DBVersion values (56, 
+		   N'Create ufn for measuring structure volume',getDate(),User_ID())
+
+	 COMMIT TRANSACTION fiftysix
+	end
+	 
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 57)))
+	begin
+     print N'Update UDTs for Locations to include width column'
+     BEGIN TRANSACTION fiftyseven
+
+		EXEC('
+		ALTER FUNCTION [dbo].[SectionLocations](@Z float)
+			RETURNS TABLE 
+			AS
+			RETURN(
+ 					Select * from Location where Z = @Z
+				);
+		')
+		
+		EXEC('
+			ALTER FUNCTION [dbo].[SectionLocationsModifiedAfterDate](@Z float, @QueryDate datetime)
+			RETURNS TABLE 
+			AS
+			RETURN(
+ 					Select * from Location 
+					where Z = @Z AND LastModified >= @QueryDate
+				);
+		')
+
+	  INSERT INTO DBVersion values (57, 
+		    N'Update UDTs for Locations to include width column',getDate(),User_ID())
+
+	 COMMIT TRANSACTION fiftyseven
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 58)))
+	begin
+     print N'Add unique constraint to PermittedStructureLink table'
+     BEGIN TRANSACTION fiftyeight
+	  
+	   EXEC('
+	 ALTER TABLE [dbo].[PermittedStructureLink] ADD  CONSTRAINT [PermittedStructureLink_source_target_unique] UNIQUE NONCLUSTERED 
+	 (
+		[SourceTypeID] ASC,
+		[TargetTypeID] ASC
+	 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON)
+	 ')
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	 INSERT INTO DBVersion values (58, 
+		    N'Add unique constraint to PermittedStructureLink table',getDate(),User_ID())
+
+	 COMMIT TRANSACTION fiftyeight
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 59)))
+	begin
+     print N'Fixed bug in StructureLocationLinks where a specific database was named'
+     BEGIN TRANSACTION fiftynine
+	  
+	  EXEC('
+			ALTER FUNCTION [dbo].[StructureLocationLinks](@StructureID bigint)
+				RETURNS TABLE 
+				AS
+				RETURN(
+ 						select LLA.* from  LocationLink LLA 
+						inner join Location L ON LLA.A = L.ID
+						where L.ParentID = @StructureID
+						union
+						select LLB.* from LocationLink LLB  
+						inner join Location L ON LLB.B = L.ID
+						where L.ParentID = @StructureID
+						)
+						')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		INSERT INTO DBVersion values (59, 
+		    N'Fixed bug in StructureLocationLinks where a specific database was named' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION fiftynine
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 60)))
+	begin
+     print N'Added Stored Procedure to return NetworkChildStructures'
+     BEGIN TRANSACTION sixty
+	 
+	  EXEC('
+			
+			CREATE PROCEDURE [dbo].[SelectNetworkChildStructures]
+						-- Add the parameters for the stored procedure here
+						@IDs integer_list READONLY,
+						@Hops int
+			AS
+			BEGIN
+				DECLARE @CellsInNetwork integer_list 
+				DECLARE @ChildrenInNetwork integer_list 
+
+				insert into @CellsInNetwork exec SelectNetworkStructureIDs @IDs, @Hops
+
+				select S.* from Structure S 
+					inner join @CellsInNetwork N ON N.ID = S.ParentID
+			END
+			
+						')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		INSERT INTO DBVersion values (60, 
+		     N'Added Stored Procedure to return NetworkChildStructures' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION sixty
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 61)))
+	begin
+     print N'Fixed bugs in Network stored procedures'
+     BEGIN TRANSACTION sixtyone
+	  
+	  /*Update the return value to use "ID" for the column name instead of "SourceID"*/
+	  EXEC('DROP PROCEDURE SelectNetworkChildStructureIDs')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	  EXEC('DROP PROCEDURE SelectNetworkStructureIDs')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+		 
+		 /*Update the return value to use "ID" for the column name instead of "SourceID"*/
+	  EXEC('CREATE FUNCTION NetworkStructureIDs
+			(
+				-- Add the parameters for the function here
+				@IDs integer_list READONLY,
+				@Hops int
+			)
+			RETURNS @CellsInNetwork TABLE 
+			(
+				-- Add the column definitions for the TABLE variable here
+				ID bigint PRIMARY KEY
+			)
+			AS
+			BEGIN
+				-- Fill the table variable with the rows for your result set
+	
+				DECLARE @HopSeedCells integer_list 
+
+				insert into @HopSeedCells select ID from @IDs 
+				insert into @CellsInNetwork select ID from @IDs 
+
+				while @Hops > 0
+				BEGIN
+					DECLARE @HopSeedCellsChildStructures integer_list
+					DECLARE @ChildStructurePartners integer_list
+					DECLARE @HopCellsFound integer_list
+		
+					insert into @HopSeedCellsChildStructures
+						select distinct Child.ID from Structure Parent
+							inner join Structure Child ON Child.ParentID = Parent.ID
+							inner join @HopSeedCells Cells ON Cells.ID = Parent.ID
+		
+					insert into @ChildStructurePartners
+						select distinct SL.TargetID from StructureLink SL
+							inner join @HopSeedCellsChildStructures C ON C.ID = SL.SourceID
+						UNION
+						select distinct SL.SourceID from StructureLink SL
+							inner join @HopSeedCellsChildStructures C ON C.ID = SL.TargetID
+				 
+					insert into @HopCellsFound 
+						select distinct Parent.ID from Structure Parent
+							inner join Structure Child ON Child.ParentID = Parent.ID
+							inner join @ChildStructurePartners Partners ON Partners.ID = Child.ID
+						where Parent.ID not in (Select ID from @CellsInNetwork union select ID from @HopSeedCells)
+		
+					delete S from @HopSeedCells S
+		
+					insert into @HopSeedCells 
+						select ID from @HopCellsFound 
+						where ID not in (Select ID from @CellsInNetwork)
+
+					insert into @CellsInNetwork select ID from @HopCellsFound 
+						where ID not in (Select ID from @CellsInNetwork)
+			 
+
+					delete from @ChildStructurePartners
+					delete from @HopCellsFound
+			 
+					set @Hops = @Hops - 1
+				END 
+
+				RETURN 
+			END')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 EXEC('
+		    CREATE FUNCTION [dbo].[NetworkChildStructureIDs]
+			(
+				-- Add the parameters for the function here
+				@IDs integer_list READONLY,
+				@Hops int
+			)
+			RETURNS @ChildStructuresInNetwork TABLE 
+			(
+				-- Add the column definitions for the TABLE variable here
+				ID bigint PRIMARY KEY
+			)
+			AS
+			BEGIN
+				-- Fill the table variable with the rows for your result set
+				DECLARE @ChildIDsInNetwork integer_list 
+	 
+				insert into @ChildIDsInNetwork 
+					select ChildStruct.ID from Structure S
+					inner join NetworkStructureIDs(@IDs, @Hops) N ON S.ID = N.ID
+					inner join Structure ChildStruct ON ChildStruct.ParentID = N.ID
+
+				insert into @ChildStructuresInNetwork 
+					select SL.SourceID as ID from StructureLink SL
+						where SL.SourceID in (Select ID from @ChildIDsInNetwork)
+					UNION
+					select SL.TargetID as ID from StructureLink SL
+						where SL.TargetID in (Select ID from @ChildIDsInNetwork)
+
+				RETURN
+			END')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 EXEC('
+		    ALTER PROCEDURE [dbo].[SelectNetworkStructures]
+				-- Add the parameters for the stored procedure here
+				@IDs integer_list READONLY,
+				@Hops int
+			AS
+			BEGIN
+				select S.* from Structure S 
+					inner join NetworkStructureIDs(@IDs, @Hops) N ON N.ID = S.ID
+			END')
+			
+		  if(@@error <> 0)
+			 begin
+			   ROLLBACK TRANSACTION 
+			   RETURN
+			 end
+
+		 EXEC('
+		    ALTER PROCEDURE [dbo].[SelectNetworkChildStructures]
+						-- Add the parameters for the stored procedure here
+						@IDs integer_list READONLY,
+						@Hops int
+			AS
+			BEGIN
+				select S.* from Structure S 
+					inner join NetworkChildStructureIDs(@IDs, @Hops) N ON N.ID = S.ID
+			END')
+			
+		  if(@@error <> 0)
+			 begin
+			   ROLLBACK TRANSACTION 
+			   RETURN
+			 end
+
+		  EXEC('
+			ALTER PROCEDURE [dbo].[SelectNetworkStructureLinks]
+						-- Add the parameters for the stored procedure here
+						@IDs integer_list READONLY,
+						@Hops int
+			AS
+			BEGIN
+				select SL.* from StructureLink SL
+					where SL.SourceID in (Select ID from NetworkChildStructureIDs( @IDs, @Hops)) OR
+							SL.TargetID in (Select ID from NetworkChildStructureIDs( @IDs, @Hops))
+			END')
+			
+		  if(@@error <> 0)
+			 begin
+			   ROLLBACK TRANSACTION 
+			   RETURN
+			 end
+
+		
+
+		INSERT INTO DBVersion values (61, 
+		     N'Fixed bugs in Network stored procedures' ,getDate(),User_ID() )
+		
+	 COMMIT TRANSACTION sixtyone
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 62)))
+	begin
+     print N'Updated SectionLocations function to ensure they use the new width column'
+     BEGIN TRANSACTION sixtytwo
+	  
+	  EXEC('
+			ALTER FUNCTION [dbo].[SectionLocations](@Z float)
+			RETURNS TABLE 
+			AS
+			RETURN(
+ 					Select * from Location where Z = @Z
+				);
+						')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	  EXEC('
+			ALTER FUNCTION [dbo].[SectionLocationsModifiedAfterDate](@Z float, @QueryDate datetime)
+			RETURNS TABLE 
+			AS
+			RETURN(
+ 					Select * from Location 
+					where Z = @Z AND LastModified >= @QueryDate
+				);
+						')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		INSERT INTO DBVersion values (62, N'Fixed bug in StructureLocationLinks where a specific database was named' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION sixtytwo
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 63)))
+	begin
+     print N'Re-add the select NetworkStructureID and NetworkChildStructureID procedures to work around entity framework issues with udt parameters'
+     BEGIN TRANSACTION sixtythree
+	  
+	  EXEC('CREATE PROCEDURE [dbo].SelectNetworkStructureIDs
+				-- Add the parameters for the stored procedure here
+				@IDs integer_list READONLY,
+				@Hops int
+			AS
+			BEGIN
+				select N.ID as ID from NetworkStructureIDs(@IDs, @Hops) N
+			END')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	  EXEC('CREATE PROCEDURE [dbo].SelectNetworkChildStructureIDs
+				-- Add the parameters for the stored procedure here
+				@IDs integer_list READONLY,
+				@Hops int
+			AS
+			BEGIN
+				select N.ID as ID from NetworkChildStructureIDs(@IDs, @Hops) N
+			END')
+			
+	  if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		INSERT INTO DBVersion values (63, N'Re-add the select NetworkStructureID and NetworkChildStructureID procedures to work around entity framework issues with udt parameters' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION sixtythree
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 64)))
+	begin
+     print N'Update the location types required to have a width'
+	 BEGIN TRANSACTION sixtyfour
+
+		--ALTER TABLE Location DROP CONSTRAINT chk_Location_Width 
+		EXEC(' ALTER TABLE Location DROP CONSTRAINT chk_Location_Width ')
+      
+		if(@@error <> 0)
+		 begin
+			ROLLBACK TRANSACTION 
+			RETURN
+		 end 
+
+		 EXEC('UPDATE Location set Width = NULL WHERE (TypeCode = 6 OR TypeCode <= 2 OR TypeCode = 4) AND Width IS NOT NULL')
+		 if(@@error <> 0)
+		 begin
+			ROLLBACK TRANSACTION 
+			RETURN
+		 end 
+		 
+		  EXEC('ALTER TABLE Location
+				ADD CONSTRAINT chk_Location_Width CHECK (
+				(0 = TypeCode AND Width IS NULL) OR 
+				(1 = TypeCode AND Width IS NULL) OR
+				(2 = TypeCode AND Width IS NULL) OR
+				(3 = TypeCode AND Width IS NOT NULL) OR
+				(4 = TypeCode AND Width IS NULL) OR
+				(5 = TypeCode AND Width IS NOT NULL) OR
+				(6 = TypeCode AND Width IS NULL) OR
+				(7 = TypeCode AND Width IS NOT NULL)
+			) ') 
+
+		  if(@@error <> 0)
+			 begin
+			   ROLLBACK TRANSACTION 
+			 RETURN
+		  end
+
+		  INSERT INTO DBVersion values (64, N'Update the location types required to have a width' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION sixtyfour
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 65)))
+	begin
+     print N'Create view for spatial data of structures'
+	 BEGIN TRANSACTION sixtyfive
+		
+		IF OBJECT_ID (N'dbo.StructureSpatialView', N'V') IS NOT NULL
+			DROP VIEW dbo.StructureSpatialView; 
+		EXEC(' CREATE VIEW dbo.StructureSpatialView
+				AS
+				SELECT        S.ID as ID,
+							  S.TypeID as TypeID,
+							  S.ParentID as ParentID,
+							  dbo.ufnStructureArea(S.ID) as Area, 
+							  dbo.ufnStructureVolume(S.ID) as Volume, 
+							  L.ConvexHull as ConvexHull,
+							  L.BoundingBox as BoundingBox,
+							  L.MinZ as MinZ, 
+							  L.MaxZ as MaxZ
+				FROM            [dbo].[Structure] S
+				INNER JOIN 
+					(select L.ParentID, 
+					   Geometry::ConvexHullAggregate(L.VolumeShape) as ConvexHull,
+					   Geometry::EnvelopeAggregate(L.VolumeShape) as BoundingBox,
+					   min(L.Z) as MinZ, 
+					   max(L.Z) as MaxZ
+				FROM Location L group by L.ParentID) L  ON L.ParentID = S.ID
+				   ')
+
+		if(@@error <> 0)
+		 begin
+			ROLLBACK TRANSACTION 
+			RETURN
+		 end 
+
+		 INSERT INTO DBVersion values (65, N'Create view for spatial data of structures' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION sixtyfive
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 66)))
+	begin
+     print N'Update Merge Structure procedure to remove structure links between merged structures'
+	 BEGIN TRANSACTION sixtysix
+		
+		EXEC(' ALTER PROCEDURE [dbo].[MergeStructures]
+					-- Add the parameters for the stored procedure here
+					@KeepStructureID bigint,
+					@MergeStructureID bigint
+				AS
+				BEGIN
+					-- SET NOCOUNT ON added to prevent extra result sets from
+					-- interfering with SELECT statements.
+					SET NOCOUNT ON;
+
+					declare @MergeNotes nvarchar(max)
+					set @MergeNotes = (select notes from Structure where ID = @MergeStructureID)
+
+					update Location 
+					set ParentID = @KeepStructureID 
+					where ParentID = @MergeStructureID
+
+					update Structure
+					set ParentID = @KeepStructureID 
+					where ParentID = @MergeStructureID
+
+					IF NOT (@MergeNotes IS NULL OR @MergeNotes = '''')
+					BEGIN
+						declare @crlf nvarchar(2)
+						set @crlf = CHAR(13) + CHAR(10)
+
+						declare @MergeHeader nvarchar(80)
+						declare @MergeFooter nvarchar(80)
+						set @MergeHeader = ''*****BEGIN MERGE FROM '' + CONVERT(nvarchar(80), @MergeStructureID) + ''*****''
+						set @MergeFooter = ''*****END MERGE FROM '' + CONVERT(nvarchar(80), @MergeStructureID) + ''*****''
+
+						update Structure
+						set Notes = Notes + @crlf + @MergeHeader + @crlf + @MergeNotes + @crlf + @MergeFooter + @crlf
+						where ID = @KeepStructureID
+					END
+
+					-- Delete any structure links directly between the keep and merge structures, a rare occurrence from incorrect annotations
+					delete StructureLink where SourceID = @KeepStructureID AND TargetID = @MergeStructureID
+					delete StructureLink where TargetID = @KeepStructureID AND SourceID = @MergeStructureID
+
+					update StructureLink
+					set TargetID = @KeepStructureID
+					where TargetID = @MergeStructureID
+		
+					update StructureLink
+					set SourceID = @KeepStructureID
+					where SourceID = @MergeStructureID
+
+					update Structure
+					set Notes = ''Merged into structure '' + CONVERT(nvarchar(80), @KeepStructureID)
+					where ID = @MergeStructureID
+
+					delete Structure
+					where ID = @MergeStructureID
+				END   ')
+
+		if(@@error <> 0)
+		 begin
+			ROLLBACK TRANSACTION 
+			RETURN
+		 end 
+
+		 INSERT INTO DBVersion values (66, N'Update Merge Structure procedure to remove structure links between merged structures' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION sixtysix
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 67)))
+	begin
+     print N'SplitStructure procedure'
+	 BEGIN TRANSACTION sixtyseven
+		
+		IF OBJECT_ID (N'dbo.SplitStructure', N'P') IS NOT NULL
+		begin
+			DROP PROCEDURE dbo.SplitStructure
+		end
+
+		EXEC(' CREATE PROCEDURE SplitStructure
+			-- Add the parameters for the stored procedure here
+			@LocationIDOfSplitStructure bigint,
+			@SplitStructureID bigint OUTPUT
+		AS
+		BEGIN
+			-- SET NOCOUNT ON added to prevent extra result sets from
+			-- interfering with SELECT statements.
+			SET NOCOUNT ON;
+
+			IF OBJECT_ID(''tempdb..#LocationLinkPool'') IS NOT NULL DROP TABLE #LocationLinkPool
+			IF OBJECT_ID(''tempdb..#LocationsInKeepSubGraph'') IS NOT NULL DROP TABLE #LocationsInKeepSubGraph
+			IF OBJECT_ID(''tempdb..#LocationsInSplitSubGraph'') IS NOT NULL DROP TABLE #LocationsInSplitSubGraph
+			IF OBJECT_ID(''tempdb..#ChildStructureLocations'') IS NOT NULL DROP TABLE #ChildStructureLocations
+			IF OBJECT_ID(''tempdb..#StructureLocations'') IS NOT NULL DROP TABLE #StructureLocations
+			IF OBJECT_ID(''tempdb..#DistanceToEachStructure'') IS NOT NULL DROP TABLE #DistanceToEachStructure
+			IF OBJECT_ID(''tempdb..#DistanceToNearestStructure'') IS NOT NULL DROP TABLE #DistanceToNearestStructure
+			IF OBJECT_ID(''tempdb..#ParentIDForChildStructure'') IS NOT NULL DROP TABLE #ParentIDForChildStructure
+
+			set @SplitStructureID = 0 
+			DECLARE @KeepStructureID bigint 
+
+			set @KeepStructureID = (select ParentID from Location where ID = @LocationIDOfSplitStructure)
+	
+			SELECT A,B into #LocationLinkPool from dbo.StructureLocationLinks(@KeepStructureID) order by A
+
+			--select * from #LocationLinkPool where A = @LocationIDOfSplitStructure OR B = @LocationIDOfSplitStructure
+
+			CREATE TABLE #LocationsInSplitSubGraph(ID bigint)
+			insert into #LocationsInSplitSubGraph (ID) values (@LocationIDOfSplitStructure)
+	  
+			--Loop over the pool adding to the subgraph until we cannot find any more locations
+			DECLARE @RowsAddedToSubgraph bigint
+			set @RowsAddedToSubgraph = 1
+			While @RowsAddedToSubgraph > 0
+			BEGIN
+			--insert into #GAggregate (SParentID, Shape) Select SParentID, TMosaicShape from #StructureLinks where TMosaicShape is NOT NULL
+
+				insert into #LocationsInSplitSubGraph (ID) 
+					Select B as ID from #LocationLinkPool where A in (select ID from #LocationsInSplitSubGraph)
+					union 
+					Select A as ID from #LocationLinkPool where B in (select ID from #LocationsInSplitSubGraph)
+
+				set @RowsAddedToSubgraph = @@ROWCOUNT
+
+				--select distinct(ID) from #LocationsInSplitSubGraph
+
+				--Remove links we have already added
+				delete LLP from #LocationLinkPool LLP
+				join #LocationsInSplitSubGraph SA ON SA.ID = LLP.A
+				join #LocationsInSplitSubGraph SB ON SB.ID = LLP.B
+			END
+
+			select ID into #LocationsInKeepSubGraph from Location where ParentID = @KeepStructureID AND ID not in (select ID from #LocationsInSplitSubGraph)
+
+			IF ((select COUNT(ID) from #LocationsInKeepSubGraph) = 0)
+				THROW 50000, N''The split structure is connected to the entire keep cell.  Break a location link to create two subgraphs and try again'', 1;
+
+			--We have built the list of annotations to be used for the old and new structure.  Create a new structure for the split and capture the ID
+			INSERT INTO Structure (TypeID, Notes, Verified, Tags, Confidence, ParentID, Created, Label, Username, LastModified)
+				SELECT TypeID, Notes, Verified, Tags, Confidence, ParentID, Created, Label, Username, LastModified from Structure S where
+					S.ID = @KeepStructureID
+			set @SplitStructureID = SCOPE_IDENTITY()
+
+			select VolumeShape, Z, KL.ID, @KeepStructureID as ParentID into  #StructureLocations
+			FROM Location L 
+			JOIN #LocationsInKeepSubGraph KL ON KL.ID = L.ID
+			UNION ALL
+			select VolumeShape, Z, SL.ID, @SplitStructureID as ParentID FROM Location L 
+			JOIN #LocationsInSplitSubGraph SL ON SL.ID = L.ID
+
+			select ParentID as StructureID, geometry::ConvexHullAggregate(VolumeShape) as Shape, AVG(Z) as Z 
+				into #ChildStructureLocations from Location
+				where ParentID in (select ID from Structure where ParentID = @KeepStructureID)
+				group by ParentID
+
+			--Find the nearest location in either the keep or split structure
+			select CSL.StructureID as StructureID, SL.ParentID as NewParentID, MIN(SL.VolumeShape.STDistance(CSL.Shape)) as Distance
+				INTO #DistanceToEachStructure from #ChildStructureLocations CSL
+				join #StructureLocations SL ON SL.Z = CSL.Z
+				Group By CSL.StructureID, SL.ParentID 
+				order by CSL.StructureID
+
+			select SL.StructureID as StructureID, MIN(SL.Distance) as Distance 
+			INTO #DistanceToNearestStructure from #DistanceToEachStructure SL
+			group by SL.StructureID 
+
+			select SD.StructureID as StructureID, SD.NewParentID as NewParentID, SD.Distance as Distance
+			into #ParentIDForChildStructure from #DistanceToEachStructure SD
+			join #DistanceToNearestStructure SN ON SN.StructureID = SD.StructureID AND SN.Distance = SD.Distance
+
+			update Location set ParentID = @SplitStructureID
+			FROM Location L
+				INNER JOIN #LocationsInSplitSubGraph LS ON LS.ID = L.ID
+
+			update Structure set ParentID = PCS.NewParentID 
+			FROM Structure S
+				JOIN #ParentIDForChildStructure PCS ON S.ID = PCS.StructureID
+
+			IF OBJECT_ID(''tempdb..#LocationLinkPool'') IS NOT NULL DROP TABLE #LocationLinkPool
+			IF OBJECT_ID(''tempdb..#LocationsInKeepSubGraph'') IS NOT NULL DROP TABLE #LocationsInKeepSubGraph
+			IF OBJECT_ID(''tempdb..#LocationsInSplitSubGraph'') IS NOT NULL DROP TABLE #LocationsInSplitSubGraph
+			IF OBJECT_ID(''tempdb..#ChildStructureLocations'') IS NOT NULL DROP TABLE #ChildStructureLocations
+			IF OBJECT_ID(''tempdb..#StructureLocations'') IS NOT NULL DROP TABLE #StructureLocations
+			IF OBJECT_ID(''tempdb..#DistanceToEachStructure'') IS NOT NULL DROP TABLE #DistanceToEachStructure
+			IF OBJECT_ID(''tempdb..#DistanceToNearestStructure'') IS NOT NULL DROP TABLE #DistanceToNearestStructure
+			IF OBJECT_ID(''tempdb..#ParentIDForChildStructure'') IS NOT NULL DROP TABLE #ParentIDForChildStructure 
+
+			RETURN 0
+			END   ')
+
+		if(@@error <> 0)
+		 begin
+			ROLLBACK TRANSACTION 
+			RETURN
+		 end 
+
+		 
+		IF OBJECT_ID (N'dbo.SplitStructureAtLocationLink', N'P') IS NOT NULL
+		begin
+			DROP PROCEDURE dbo.SplitStructureAtLocationLink
+		end
+
+		 EXEC('   
+			CREATE PROCEDURE SplitStructureAtLocationLink
+				@LocationIDOfKeepStructure bigint,
+				@LocationIDOfSplitStructure bigint,
+				@SplitStructureID bigint OUTPUT
+			AS
+			BEGIN
+				-- SET NOCOUNT ON added to prevent extra result sets from
+				-- interfering with SELECT statements.
+				SET NOCOUNT ON;
+	
+				set @SplitStructureID = 0
+
+				--Ensure that the location IDs of the keep and split locations are a location link.  Remove the link and continue;
+				IF (0 = (select COUNT(A) from LocationLink where (A = @LocationIDOfKeepStructure AND B = @LocationIDOfSplitStructure) OR 
+														  (B = @LocationIDOfKeepStructure AND A = @LocationIDOfSplitStructure)))
+					THROW 50000, N''The Split and Keep Location IDs must be linked'', 1;
+
+				BEGIN TRANSACTION split
+
+					Delete LocationLink where (A = @LocationIDOfKeepStructure AND B = @LocationIDOfSplitStructure) OR 
+												   (B = @LocationIDOfKeepStructure AND A = @LocationIDOfSplitStructure)
+					Exec SplitStructure @LocationIDOfSplitStructure, @SplitStructureID
+
+					if(@@error <> 0)
+					 begin
+						ROLLBACK TRANSACTION 
+						RETURN
+					 end 
+
+				COMMIT TRANSACTION split
+
+			END ')
+
+
+		 INSERT INTO DBVersion values (67, N'SplitStructure procedure' ,getDate(),User_ID())
+
+	 COMMIT TRANSACTION sixtyseven
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 68)))
+	begin
+     print N'Fix ScaleUnits functions to return multiple characters instead of one' 
+	 BEGIN TRANSACTION sixtyeight
+		IF OBJECT_ID (N'dbo.XYScaleUnits', N'FN') IS NOT NULL
+		    DROP FUNCTION XYScaleUnits;
+		IF OBJECT_ID (N'dbo.ZScaleUnits', N'FN') IS NOT NULL
+			DROP FUNCTION ZScaleUnits;
+		 		
+		Exec('
+			CREATE FUNCTION dbo.XYScaleUnits()
+			RETURNS varchar(MAX)
+			AS 
+			-- Returns the scale in the Z axis
+			BEGIN
+				RETURN ''nm''
+			END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 		
+		Exec('
+			CREATE FUNCTION dbo.ZScaleUnits()
+			RETURNS varchar(MAX)
+			AS 
+			-- Returns the scale in the Z axis
+			BEGIN
+				RETURN ''nm''
+			END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	 INSERT INTO DBVersion values (68, 
+		       N'Fix ScaleUnits functions to return multiple characters instead of one'  ,getDate(),User_ID())
+	 COMMIT TRANSACTION sixtyeight
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 69)))
+	begin
+     print N'Add user-defined functions to determine the last time a structure morphology was modified' 
+	 BEGIN TRANSACTION sixtynine
+		IF OBJECT_ID (N'dbo.ufnLastStructureModification', N'FN') IS NOT NULL
+		    DROP FUNCTION ufnLastStructureModification;
+		IF OBJECT_ID (N'dbo.ufnLastStructureModificationRecursive', N'FN') IS NOT NULL
+			DROP FUNCTION ufnLastStructureModificationRecursive;
+		 		
+		Exec('
+			CREATE FUNCTION [dbo].[ufnLastStructureMorphologyModification]
+			(
+				-- Add the parameters for the function here
+				@ID bigint
+			)
+			RETURNS DateTime
+			AS
+			BEGIN
+				-- Declare the return variable here
+				DECLARE @ResultVar DateTime
+
+				-- Add the T-SQL statements to compute the return value here
+				select @ResultVar = max(Q.LastModified) from (
+					select L.LastModified as LastModified from Location L where L.ParentID = @ID
+					union
+					select LLA.Created as LastModified from Location L 
+						inner join LocationLink LLA ON LLA.A = L.ID
+						where L.ParentID = @ID
+					union
+					select S.LastModified as LastModified from Structure S where S.ID = @ID
+					) Q
+		
+				RETURN @ResultVar
+			END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 		
+		Exec('
+			CREATE FUNCTION ufnLastStructureMorphologyModificationRecursive
+			(
+				-- Add the parameters for the function here
+				@ID bigint
+			)
+			RETURNS DateTime
+			AS
+			BEGIN
+				-- Declare the return variable here
+				DECLARE @ResultVar DateTime
+
+				select @ResultVar = max(dbo.ufnLastStructureModification(S.ID)) from Structure S where S.ID = @ID or S.ParentID = @ID
+	 
+				RETURN @ResultVar
+			END
+		')
+		
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Exec('
+			CREATE FUNCTION [dbo].[ufnLastNetworkModification]
+			(
+				-- Add the parameters for the function here
+				@IDs integer_list READONLY,
+				@Hops int
+			)
+			RETURNS DateTime
+			AS
+			BEGIN
+				-- Declare the return variable here
+				DECLARE @ResultVar DateTime
+				declare @Network_IDs integer_list
+
+				insert into @Network_IDs 
+				select ID from NetworkStructureIDs ( @IDs, @Hops )
+				union 
+				select ID from NetworkChildStructureIDs( @IDs, @Hops)
+	    
+				declare @Result DateTime
+ 
+				select @ResultVar = MAX(S.LastModified) from Structure S
+									inner join @Network_IDs N on N.ID = S.ID
+
+				RETURN @ResultVar
+			END
+
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	 INSERT INTO DBVersion values (69, 
+		      N'Add user-defined functions to determine the last time a structure morphology was modified',getDate(),User_ID())
+	 COMMIT TRANSACTION sixtynine
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 70)))
+	begin
+     print N'Modified Area and Volume calulations to account for geometry dimensionality' 
+	 BEGIN TRANSACTION seventy
+		IF OBJECT_ID (N'dbo.ufnLastStructureModification', N'FN') IS NOT NULL
+		    DROP FUNCTION ufnLastStructureModification;
+		IF OBJECT_ID (N'dbo.ufnLastStructureModificationRecursive', N'FN') IS NOT NULL
+			DROP FUNCTION ufnLastStructureModificationRecursive;
+		IF OBJECT_ID (N'dbo.ufnLastStructureMorphologyModification', N'FN') IS NOT NULL
+			DROP FUNCTION ufnLastStructureMorphologyModification;
+		IF OBJECT_ID (N'dbo.ufnLastStructureMorphologyModificationRecursive', N'FN') IS NOT NULL
+			DROP FUNCTION ufnLastStructureMorphologyModificationRecursive;
+		IF OBJECT_ID (N'dbo.ufnLastNetworkModification', N'FN') IS NOT NULL
+			DROP FUNCTION ufnLastNetworkModification;
+		 		
+		 		
+		Exec('
+			CREATE FUNCTION [dbo].[ufnLastStructureMorphologyModification]
+			(
+				-- Add the parameters for the function here
+				@ID bigint
+			)
+			RETURNS DateTime
+			AS
+			BEGIN
+				-- Declare the return variable here
+				DECLARE @ResultVar DateTime
+
+				-- Add the T-SQL statements to compute the return value here
+				select @ResultVar = max(Q.LastModified) from (
+					select L.LastModified as LastModified from Location L where L.ParentID = @ID
+					union
+					select LLA.Created as LastModified from Location L 
+						inner join LocationLink LLA ON LLA.A = L.ID
+						where L.ParentID = @ID
+					union
+					select S.LastModified as LastModified from Structure S where S.ID = @ID
+					) Q
+		
+				RETURN @ResultVar
+			END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 		
+		Exec('
+			CREATE FUNCTION ufnLastStructureMorphologyModificationRecursive
+			(
+				-- Add the parameters for the function here
+				@ID bigint
+			)
+			RETURNS DateTime
+			AS
+			BEGIN
+				-- Declare the return variable here
+				DECLARE @ResultVar DateTime
+
+				select @ResultVar = max(dbo.ufnLastStructureModification(S.ID)) from Structure S where S.ID = @ID or S.ParentID = @ID
+	 
+				RETURN @ResultVar
+			END
+		')
+		
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Exec('
+			CREATE FUNCTION [dbo].[ufnLastNetworkModification]
+			(
+				-- Add the parameters for the function here
+				@IDs integer_list READONLY,
+				@Hops int
+			)
+			RETURNS DateTime
+			AS
+			BEGIN
+				-- Declare the return variable here
+				DECLARE @ResultVar DateTime
+				declare @Network_IDs integer_list
+
+				insert into @Network_IDs 
+				select ID from NetworkStructureIDs ( @IDs, @Hops )
+				union 
+				select ID from NetworkChildStructureIDs( @IDs, @Hops)
+	    
+				declare @Result DateTime
+ 
+				select @ResultVar = MAX(S.LastModified) from Structure S
+									inner join @Network_IDs N on N.ID = S.ID
+
+				RETURN @ResultVar
+			END
+
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	 INSERT INTO DBVersion values (70, 
+		      N'Modified Area and Volume calulations to account for geometry dimensionality' ,getDate(),User_ID())
+	 COMMIT TRANSACTION seventy
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 71)))
+	begin
+     print N'Create StructureSpatialCache' 
+	 BEGIN TRANSACTION seventyone
+		 		
+		Exec('
+			CREATE TABLE StructureSpatialCache
+			(
+				ID bigint NOT NULL PRIMARY KEY CLUSTERED,
+				BoundingRect Geometry NOT NULL,
+				Area float NOT NULL CONSTRAINT StructureSpatialCache_Area_Default DEFAULT 0,
+				Volume float NOT NULL CONSTRAINT StructureSpatialCache_Volume_Default DEFAULT 0,
+				MaxDimension int NOT NULL CONSTRAINT StructureSpatialCache_MaxDimension_Default DEFAULT 0,
+				MinZ float NOT NULL,
+				MaxZ float NOT NULL,
+				ConvexHull Geometry NOT NULL,
+				LastModified DateTime NOT NULL
+				FOREIGN KEY (ID) REFERENCES [Structure] (ID) ON UPDATE NO ACTION ON DELETE CASCADE
+			)
+
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 		
+		Exec('
+
+			INSERT INTO StructureSpatialCache
+			SELECT        S.ID as ID, 
+						  L.BoundingRect as BoundingRect,
+						  [dbo].ufnStructureArea(S.ID) as Area, 
+						  [dbo].ufnStructureVolume(S.ID) as Volume, 
+						  L.MaxDim as MaxDimension,
+						  L.MinZ as MinZ, 
+						  L.MaxZ as MaxZ,
+						  L.ConvexHull as ConvexHull,
+						  [dbo].ufnLastStructureMorphologyModification(S.ID) as LastModified
+
+			FROM Structure S
+			INNER JOIN 
+				(select L.ParentID, 
+				   --Geometry::UnionAggregate(L.VolumeShape) as AggregateShape,
+				   Geometry::ConvexHullAggregate(L.VolumeShape) as ConvexHull,
+				   Geometry::EnvelopeAggregate(L.VolumeShape) as BoundingRect,
+				   max(L.VolumeShape.STDimension()) as MaxDim,
+				   min(L.Z) as MinZ, 
+				   max(L.Z) as MaxZ
+			FROM Location L group by L.ParentID) L  ON L.ParentID = S.ID
+
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 		
+		Exec('
+			CREATE TRIGGER UpdateStructureSpatialCache
+			  ON Location
+			  AFTER INSERT, UPDATE, DELETE
+			as
+			BEGIN
+				if @@ROWCOUNT = 0
+					return
+
+				SET NOCOUNT ON
+
+				DELETE StructureSpatialCache 
+				WHERE StructureSpatialCache.ID IN (SELECT ParentID FROM DELETED Group By ParentID)
+
+				DELETE StructureSpatialCache 
+				WHERE StructureSpatialCache.ID IN (SELECT ParentID FROM INSERTED Group By ParentID)	
+
+				INSERT INTO StructureSpatialCache
+				SELECT        S.ID as ID,  
+							  L.BoundingRect as BoundingRect,
+							  [dbo].ufnStructureArea(S.ID) as Area, 
+							  [dbo].ufnStructureVolume(S.ID) as Volume, 
+							  L.MaxDim as MaxDimension,
+							  L.MinZ as MinZ, 
+							  L.MaxZ as MaxZ,
+							  L.ConvexHull as ConvexHull,
+							  [dbo].ufnLastStructureMorphologyModification(S.ID) as LastModified
+
+				FROM Structure S
+				INNER JOIN 
+					(select L.ParentID, 
+					   --Geometry::UnionAggregate(L.VolumeShape) as AggregateShape,
+					   Geometry::ConvexHullAggregate(L.VolumeShape) as ConvexHull,
+					   Geometry::EnvelopeAggregate(L.VolumeShape) as BoundingRect,
+					   max(L.VolumeShape.STDimension()) as MaxDim,
+					   min(L.Z) as MinZ,
+					   max(L.Z) as MaxZ
+				FROM Location L group by L.ParentID) L  ON L.ParentID = S.ID
+				INNER JOIN INSERTED I ON I.ParentID = S.ID
+			END
+		')
+		
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Exec('
+			DROP VIEW STRUCTURESPATIALVIEW
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Exec('
+			  CREATE PROCEDURE [dbo].[SelectNetworkStructureSpatialData]
+				-- Add the parameters for the stored procedure here
+				@IDs integer_list READONLY,
+				@Hops int
+			AS
+			BEGIN
+				select S.* from StructureSpatialCache S 
+					inner join NetworkStructureIDs(@IDs, @Hops) N ON N.ID = S.ID
+			END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Exec('
+			CREATE PROCEDURE [dbo].[SelectNetworkChildStructureSpatialData]
+						-- Add the parameters for the stored procedure here
+						@IDs integer_list READONLY,
+						@Hops int
+			AS
+			BEGIN
+				select S.* from StructureSpatialCache S 
+					inner join NetworkChildStructureIDs(@IDs, @Hops) N ON N.ID = S.ID
+			END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	 INSERT INTO DBVersion values (71, 
+		      N'Create StructureSpatialCache' ,getDate(),User_ID())
+	 COMMIT TRANSACTION seventyone
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 72)))
+	begin
+     print N'Fix StructureSpatialCache performance problems' 
+	 BEGIN TRANSACTION seventytwo
+		
+		Exec('
+			ALTER TRIGGER UpdateStructureSpatialCache
+			  ON Location
+			  AFTER INSERT, UPDATE, DELETE
+			as
+			BEGIN
+				SET NOCOUNT ON
+
+				if @@ROWCOUNT = 0
+					return
+
+				IF TRIGGER_NESTLEVEL() > 1/*this update is coming from some other trigger*/
+					return
+
+				DELETE StructureSpatialCache 
+				WHERE StructureSpatialCache.ID IN (SELECT ParentID FROM DELETED Group By ParentID)
+
+				DELETE StructureSpatialCache 
+				WHERE StructureSpatialCache.ID IN (SELECT ParentID FROM INSERTED Group By ParentID)	
+
+				INSERT INTO StructureSpatialCache
+				SELECT        S.ID as ID,  
+							  L.BoundingRect as BoundingRect,
+							  [dbo].ufnStructureArea(S.ID) as Area, 
+							  [dbo].ufnStructureVolume(S.ID) as Volume, 
+							  L.MaxDim as MaxDimension,
+							  L.MinZ as MinZ, 
+							  L.MaxZ as MaxZ,
+							  L.ConvexHull as ConvexHull,
+							  [dbo].ufnLastStructureMorphologyModification(S.ID) as LastModified
+
+				FROM Structure S
+				INNER JOIN 
+					(select L.ParentID, 
+					   --Geometry::UnionAggregate(L.VolumeShape) as AggregateShape,
+					   Geometry::ConvexHullAggregate(L.VolumeShape) as ConvexHull,
+					   Geometry::EnvelopeAggregate(L.VolumeShape) as BoundingRect,
+					   max(L.VolumeShape.STDimension()) as MaxDim,
+					   min(L.Z) as MinZ,
+					   max(L.Z) as MaxZ
+				FROM Location L group by L.ParentID) L  ON L.ParentID = S.ID
+				INNER JOIN (Select ParentID from INSERTED I group by ParentID) I ON I.ParentID = S.ID /*Must use Group by in the inner join or we create many rows and re-run expensive functions calculating columns for all of them*/
+			END
+		')
+		
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Exec('
+			exec sp_settriggerorder @triggername= ''UpdateStructureSpatialCache'', @order=''Last'', @stmttype = ''UPDATE'';  
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	 INSERT INTO DBVersion values (72, 
+		      N'Fix StructureSpatialCache performance problems'  ,getDate(),User_ID())
+	 COMMIT TRANSACTION seventytwo
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 73)))
+	begin
+     print N'Create helper functions for querying the existence of tags' 
+	 BEGIN TRANSACTION seventythree
+		
+		Exec('
+			ALTER FUNCTION LocationHasTag 
+			(
+				-- Add the parameters for the function here
+				@ID bigint,
+				@TagName nvarchar(128)
+			)
+			RETURNS bit
+			AS
+			BEGIN
+				-- Add the T-SQL statements to compute the return value here
+				RETURN
+					(SELECT MAX( CASE 
+							WHEN N.value(''.'',''nvarchar(128)'') LIKE @Tagname THEN 1
+							ELSE 0
+						END)
+						FROM Location
+							cross apply Tags.nodes(''Structure/Attrib/@Name'') as T(N)
+							WHERE ID = @ID) 
+			END
+		')
+		
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Grant EXECUTE on LocationHasTag to public
+
+		 Exec('
+			ALTER FUNCTION StructureHasTag 
+			(
+				-- Add the parameters for the function here
+				@StructureID bigint,
+				@TagName nvarchar(128)
+			)
+			RETURNS bit
+			AS
+			BEGIN
+				-- Add the T-SQL statements to compute the return value here
+				RETURN
+					(SELECT MAX( CASE 
+						WHEN N.value(''.'',''nvarchar(128)'') LIKE @Tagname THEN 1
+						ELSE 0
+					END)
+					FROM Structure
+						cross apply Tags.nodes(''Structure/Attrib/@Name'') as T(N)
+						WHERE ID = @StructureID)  
+			END
+		')
+
+		if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+		 Grant EXECUTE on StructureHasTag to public
+
+	 INSERT INTO DBVersion values (73, 
+		      N'Create helper functions for querying the existence of tags'   ,getDate(),User_ID())
+	 COMMIT TRANSACTION seventythree
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 74)))
+	begin
+     print N'Create helper functions for querying the existence of tags' 
+	 BEGIN TRANSACTION seventyfour
+		
+	 EXEC('
+		CREATE PROCEDURE DeepDeleteStructure
+		-- Add the parameters for the stored procedure here
+		@DeleteID bigint
+		AS
+		BEGIN
+		-- SET NOCOUNT ON added to prevent extra result sets from
+		-- interfering with SELECT statements.
+		SET NOCOUNT ON;
+	
+		if OBJECT_ID(''tempdb..#StructuresToDelete'') is not null
+		BEGIN
+			DROP Table #StructuresToDelete
+		END
+
+		select ID into #StructuresToDelete from (Select ID from Structure where ID = @DeleteID or ParentID = @DeleteID) as ID
+
+		delete from LocationLink
+		where A in 
+		(
+		Select ID from Location 
+		where ParentID in (Select ID From #StructuresToDelete) ) 
+
+		delete from LocationLink
+		where B in 
+		(
+		Select ID from Location where ParentID in (Select ID From #StructuresToDelete) ) 
+
+		delete from Location
+		where ParentID in (Select ID From #StructuresToDelete)
+
+		delete from StructureLink where SourceID in (Select ID From #StructuresToDelete) or TargetID in (Select ID From #StructuresToDelete)
+
+		delete from Structure
+		where ParentID=@DeleteID
+
+		delete from Structure
+		where ID=@DeleteID
+
+		if OBJECT_ID(''tempdb..#StructuresToDelete'') is not null
+		BEGIN
+			DROP Table #StructuresToDelete
+		END
+	END
+	 ')
+
+	 if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	INSERT INTO DBVersion values (74, 
+		      N'Add stored procedure to delete structures'   ,getDate(),User_ID())
+	 COMMIT TRANSACTION seventyfour
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 75)))
+	begin
+     print N'Make username fields long enough to hold E-mail addresses' 
+	 BEGIN TRANSACTION seventyfive
+		
+	EXEC sp_fulltext_column
+		@tabname =  'Location' , 
+		@colname =  'Username' , 
+		@action =  'drop'
+
+	 ALTER TABLE Location DROP CONSTRAINT [DF_Location_Username] 
+	 ALTER TABLE Location ALTER COLUMN Username nvarchar(254) NOT NULL
+	 ALTER TABLE [dbo].[Location] ADD  CONSTRAINT [DF_Location_Username]  DEFAULT (N'') FOR [Username]
+	 
+	 EXEC sp_fulltext_column  
+		@tabname =  'Location', 
+		@colname =  'Username', 
+		@action =  'add' 
+
+	 if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+		
+	 DROP INDEX IF EXISTS [LocationLink_A_B_Username_Created] ON [dbo].[LocationLink]
+	 DROP INDEX IF EXISTS [LocationLink_B_A_Username_Created] ON [dbo].[LocationLink]
+	 ALTER TABLE [dbo].[LocationLink] DROP CONSTRAINT [DF_LocationLink_Username]
+	 ALTER TABLE LocationLink ALTER COLUMN Username nvarchar(254) NOT NULL
+	 ALTER TABLE [dbo].[LocationLink] ADD  CONSTRAINT [DF_LocationLink_Username]  DEFAULT (N'') FOR [Username]
+
+	 CREATE NONCLUSTERED INDEX [LocationLink_A_B_Username_Created] ON [dbo].[LocationLink]
+	(
+		[A] ASC,
+		[B] ASC
+		)
+	 WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+
+	 CREATE NONCLUSTERED INDEX [LocationLink_B_A_Username_Created] ON [dbo].[LocationLink]
+	(
+		[B] ASC,
+		[A] ASC
+		)
+	 WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+
+
+	if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	EXEC sp_fulltext_column
+		@tabname =  'Structure' , 
+		@colname =  'Username' , 
+		@action =  'drop'
+
+	 ALTER TABLE Structure DROP CONSTRAINT [DF_Structure_Username] 
+	 ALTER TABLE Structure ALTER COLUMN Username nvarchar(254) NOT NULL
+	 ALTER TABLE [dbo].[Structure] ADD  CONSTRAINT [DF_Structure_Username]  DEFAULT (N'') FOR [Username]
+	 
+	 EXEC sp_fulltext_column  
+		@tabname =  'Structure', 
+		@colname =  'Username', 
+		@action =  'add' 
+
+	if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+		 
+	 ALTER TABLE StructureLink DROP CONSTRAINT [DF_StructureLink_Username] 
+	 ALTER TABLE StructureLink ALTER COLUMN Username nvarchar(254) NOT NULL
+	 ALTER TABLE [dbo].[StructureLink] ADD  CONSTRAINT [DF_StructureLink_Username]  DEFAULT (N'') FOR [Username]
+	 
+
+	if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	 ALTER TABLE StructureType DROP CONSTRAINT [DF_StructureType_Username] 
+	 ALTER TABLE StructureType ALTER COLUMN Username nvarchar(254) NOT NULL
+	 ALTER TABLE [dbo].[StructureType] ADD  CONSTRAINT [DF_StructureType_Username]  DEFAULT (N'') FOR [Username]
+	 
+
+	if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+
+	INSERT INTO DBVersion values (75, 
+		      N'Make username fields long enough to hold E-mail addresses'    ,getDate(),User_ID())
+	 COMMIT TRANSACTION seventyfive
+	end
+
+	if(not(exists(select (1) from DBVersion where DBVersionID = 76)))
+	begin
+     print N'Fix potential Azure Migration Issues' 
+	 BEGIN TRANSACTION seventysix
+		
+	
+
+	 if(@@error <> 0)
+		 begin
+		   ROLLBACK TRANSACTION 
+		   RETURN
+		 end
+		
+
+	INSERT INTO DBVersion values (76, 
+		      N'Fix potential Azure Migration Issues' ,getDate(),User_ID())
+	 COMMIT TRANSACTION seventysix
+	end
+END
+
 --from here on, continually add steps in the previous manner as needed.
-	COMMIT TRANSACTION main
+COMMIT TRANSACTION main

@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Geometry;
+using SqlGeometryUtils;
+
 
 
 namespace AnnotationVizLib
@@ -47,14 +50,14 @@ namespace AnnotationVizLib
         ColorScalars color_scalar = new ColorScalars(1, 1, 1, 1);
         ColorImageOffset offset = new ColorImageOffset(0,0);
 
-        public ColorMapImageData(System.IO.Stream ImageStream, int section_number, Scale scale_data)
+        public ColorMapImageData(System.IO.Stream ImageStream, int section_number, Geometry.Scale scale_data)
         {
             this.SectionNumber = section_number; 
             this.image = new Bitmap(ImageStream);
             this.scale = scale_data;
         }
 
-        public ColorMapImageData(System.IO.Stream ImageStream, int section_number, Scale scale_data, ColorScalars color_scalars, ColorImageOffset offset)
+        public ColorMapImageData(System.IO.Stream ImageStream, int section_number, Geometry.Scale scale_data, ColorScalars color_scalars, ColorImageOffset offset)
             : this(ImageStream, section_number, scale_data)
         {
             this.color_scalar = color_scalars;
@@ -228,9 +231,10 @@ namespace AnnotationVizLib
         /// </summary>
         /// <param name="locations"></param>
         /// <returns></returns>
-        public Color GetColor(List<AnnotationService.Location> locations)
+        public Color GetColor(ICollection<ILocation> locations)
         {
-            List<AnnotationService.AnnotationPoint> listPoints = locations.ConvertAll(loc => loc.VolumePosition);
+            //Remove locations with Z values not in our lookup list to save a lot of time
+            List<GridVector3> listPoints = locations.Where(l => ColorMapTable.ContainsKey((int)l.UnscaledZ)).ToList().ConvertAll(loc => loc.Geometry.Centroid().ToGridVector3(loc.UnscaledZ));
 
             return GetColor(listPoints);
         }
@@ -240,23 +244,23 @@ namespace AnnotationVizLib
         /// </summary>
         /// <param name="locations"></param>
         /// <returns></returns>
-        public Color GetColor(IList<AnnotationService.AnnotationPoint> points)
+        public Color GetColor(ICollection<GridVector3> points)
         {
             if (points.Count == 0)
                 return Color.Empty;
 
-            IEnumerable<AnnotationService.AnnotationPoint> filteredPoints = points.Where(p => ColorMapTable.ContainsKey((int)p.Z));
-            IList<Color> colors = filteredPoints.Select<AnnotationService.AnnotationPoint, Color>(p => GetColor(p.X, p.Y, (int)p.Z)).ToList();
+            IEnumerable<GridVector3> filteredPoints = points.Where(p => ColorMapTable.ContainsKey((int)p.Z));
+            IList<Color> colors = filteredPoints.Select<GridVector3, Color>(p => GetColor(p.X, p.Y, (int)p.Z)).ToList();
             return AverageColors(colors);
         }
 
-        public Color AverageColors(IList<Color> colors)
+        public Color AverageColors(ICollection<Color> colors)
         {
             if (colors.Count == 0)
                 return Color.Empty;
 
             if (colors.Count == 1)
-                return colors[0]; 
+                return colors.First();
 
             int R = 0; 
             int G = 0;
@@ -372,9 +376,14 @@ namespace AnnotationVizLib
 
             using (System.IO.Stream stream = System.IO.File.OpenRead(Filename))
             {
-                ColorMapImageData image = new ColorMapImageData(stream, SectionNumber, scale, scalars, offset);
-                return image; 
+                if (stream != null)
+                {
+                    ColorMapImageData image = new ColorMapImageData(stream, SectionNumber, scale, scalars, offset);
+                    return image;
+                }
             }
+
+            throw new ArgumentException("Could not open file: " + Filename);
         }  
     }
 
@@ -407,7 +416,13 @@ namespace AnnotationVizLib
 
         public static ColorMapWithLong CreateFromConfigFile(string config_txt_full_path)
         {
-            string config = System.IO.File.ReadAllText(config_txt_full_path);
+            string full_path = System.IO.Path.GetFullPath(config_txt_full_path);
+            if (!System.IO.File.Exists(full_path))
+            {
+                throw new System.IO.FileNotFoundException("Color mapping file not found " + full_path);
+            }
+
+            string config = System.IO.File.ReadAllText(full_path);
             return ColorMapWithLong.Create(config);
         }
 

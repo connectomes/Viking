@@ -197,7 +197,7 @@ namespace Jotunn.Controls
             addRowCommand = new RoutedUICommand("Add Row", "AddRowCommand", typeof(VirtualizingGrid), AddRowInputs);
             removeRowCommand = new RoutedUICommand("Remove Row", "RemoveRowCommand", typeof(VirtualizingGrid), RemoveRowInputs);
             addColumnCommand = new RoutedUICommand("Add Column", "AddColumnCommand", typeof(VirtualizingGrid), AddColumnInputs);
-            removeColumnCommand = new RoutedUICommand("Remove Column", "RemoveColumnCommand", typeof(VirtualizingGrid), RemoveColumnInputs);            
+            removeColumnCommand = new RoutedUICommand("Remove Column", "RemoveColumnCommand", typeof(VirtualizingGrid), RemoveColumnInputs);
         }
 
         protected void MouseLeftButtonDownClassHandler(object o, RoutedEventArgs e)
@@ -213,12 +213,33 @@ namespace Jotunn.Controls
             CommandManager.RegisterClassCommandBinding(typeof(VirtualizingGrid), new CommandBinding(VirtualizingGrid.RemoveRowCommand, OnRemoveRowCommand, CanExecuteRemoveRowCommand));
             CommandManager.RegisterClassCommandBinding(typeof(VirtualizingGrid), new CommandBinding(VirtualizingGrid.AddColumnCommand, OnAddColumnCommand));
             CommandManager.RegisterClassCommandBinding(typeof(VirtualizingGrid), new CommandBinding(VirtualizingGrid.RemoveColumnCommand, OnRemoveColumnCommand, CanExecuteRemoveColumnCommand));
+            //            CommandManager.RegisterClassCommandBinding(typeof(VirtualizingGrid), new CommandBinding(Jotunn.Common.GlobalCommands.IncrementSectionNumber, OnIncrementCommand));
+            //CommandManager.RegisterClassCommandBinding(typeof(VirtualizingGrid), new CommandBinding(Jotunn.Common.GlobalCommands.DecrementSectionNumber, OnDecrementCommand));
 
+            Prism.Commands.DelegateCommand incrementCommand = new Prism.Commands.DelegateCommand(() => CenterNumber++);
+            Prism.Commands.DelegateCommand decrementCommand = new Prism.Commands.DelegateCommand(() => CenterNumber--);
+
+            GlobalCommands.IncrementSectionNumber.RegisterCommand(incrementCommand);
+            GlobalCommands.DecrementSectionNumber.RegisterCommand(decrementCommand);
+
+            Prism.Commands.DelegateCommand addRowCommand = new Prism.Commands.DelegateCommand(AddRows);
+            Prism.Commands.DelegateCommand removeRowCommand = new Prism.Commands.DelegateCommand(RemoveRows, CanRemoveRows);
+
+            GlobalCommands.AddGridRowCommand.RegisterCommand(addRowCommand);
+            GlobalCommands.RemoveGridRowCommand.RegisterCommand(removeRowCommand);
+
+            Prism.Commands.DelegateCommand addColCommand = new Prism.Commands.DelegateCommand(AddColumns);
+            Prism.Commands.DelegateCommand removeColCommand = new Prism.Commands.DelegateCommand(RemoveColumns, CanRemoveColumns);
+
+            GlobalCommands.AddGridColumnCommand.RegisterCommand(addColCommand);
+            GlobalCommands.RemoveGridColumnCommand.RegisterCommand(removeColCommand);
+
+            CenterNumber = 10;
             //GlobalCommands.IncrementSectionNumber.RegisterCommand(VirtualizingGrid.IncrementCommand);
             //Need to do this so the mouse commands are handled
-          //  EventManager.RegisterClassHandler(typeof(ListBoxItem),
+            //  EventManager.RegisterClassHandler(typeof(ListBoxItem),
             //                                  ListBoxItem.MouseLeftButtonDownEvent,
-              //                                new RoutedEventHandler(this.MouseLeftButtonDownClassHandler));
+            //                                new RoutedEventHandler(this.MouseLeftButtonDownClassHandler));
         }
                  
         /*
@@ -495,5 +516,41 @@ namespace Jotunn.Controls
         {
             NumCols -= 2;
         }
+
+        protected void AddRows()
+        {
+            NumRows += 2;
+        }
+
+        protected bool CanRemoveRows()
+        {
+            return NumRows > 1;
+        }
+
+        protected void RemoveRows()
+        {
+            NumRows -= 2;
+            if (NumRows < 1)
+                NumRows = 1;
+        }
+
+        protected void AddColumns()
+        {
+            NumCols += 2;
+        }
+
+        protected bool CanRemoveColumns()
+        {
+            return NumCols > 1; 
+        }
+
+        protected void RemoveColumns()
+        {
+            NumCols -= 2;
+            if (NumCols < 1)
+                NumCols = 1;
+        }
+
+
     }
 }

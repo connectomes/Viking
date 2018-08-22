@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using GraphLib;
-using AnnotationVizLib.AnnotationService;
 using System.Diagnostics;
 
 
@@ -14,27 +13,52 @@ namespace AnnotationVizLib
         public string SynapseType;
 
         /// <summary>
-        /// A list of unique values indicating which structures have this type of connection
+        /// A list of unique values indicating which structures have this type of connection, and a list of the substructures making the connection
         /// </summary>
-        public List<long> SourceStructIDs = new List<long>();
+        public SortedList<long, SortedSet<long>> SourceStructIDs = new SortedList<long, SortedSet<long>>();
 
         /// <summary>
-        /// A list of unique values indicating which structures have this type of connection
+        /// A list of unique values indicating which structures have this type of connection, and a list of the substructures making the connection
         /// </summary>
-        public List<long> TargetStructIDs = new List<long>();
+        public SortedList<long, SortedSet<long>> TargetStructIDs = new SortedList<long, SortedSet<long>>();
 
-        public void AddEdgeInstance(long SourceStructID, long TargetStructID)
+        /// <summary>
+        /// Number of parent cells for structure links
+        /// </summary>
+        public int SourceCellCount { get { return SourceStructIDs.Count; } }
+
+        /// <summary>
+        /// Number of structure links
+        /// </summary>
+        public int SourceConnectionCount
+        { get { return SourceStructIDs.Values.Sum(links => links.Count); } }
+
+        /// <summary>
+        /// Number of parent cells for structure links
+        /// </summary>
+        public int TargetCellCount { get { return TargetStructIDs.Count; } }
+
+        /// <summary>
+        /// Number of structure links
+        /// </summary>
+        public int TargetConnectionCount
+        { get { return TargetStructIDs.Values.Sum(links => links.Count); } }
+
+        public void AddEdgeInstance(long SourceParentStructID, long SourceID, long TargetParentStructID, long TargetID)
         {
-            if (!SourceStructIDs.Contains(SourceStructID))
-                SourceStructIDs.Add(SourceStructID);
+            if (!SourceStructIDs.ContainsKey(SourceParentStructID))
+                SourceStructIDs.Add(SourceParentStructID, new SortedSet<long>(new long[] { SourceID }));
+            else
+                SourceStructIDs[SourceParentStructID].Add(SourceID);
 
-            if (!TargetStructIDs.Contains(TargetStructID))
-                TargetStructIDs.Add(TargetStructID); 
-
+            if (!TargetStructIDs.ContainsKey(TargetParentStructID))
+                TargetStructIDs.Add(TargetParentStructID, new SortedSet<long>(new long[] { TargetID }));
+            else
+                TargetStructIDs[TargetParentStructID].Add(TargetID);
         }
 
         public MotifEdge(string SourceKey, string TargetKey, string SynapseType)
-            : base(SourceKey, TargetKey)
+            : base(SourceKey, TargetKey, true)
         {
             this.SynapseType = SynapseType;
         }
@@ -81,20 +105,55 @@ namespace AnnotationVizLib
     public class MotifNode : Node<string, MotifEdge>
     {
         //Structures that belong to this node
-        public List<Structure> Structures;
+        public List<IStructure> Structures;
 
-        public MotifNode(string key, IEnumerable<Structure> value)
+        public int StructureCount
+        {
+            get { return Structures.Count; }
+        }
+
+        public MotifNode(string key, IEnumerable<IStructure> value)
             : base(key)
         {
-            this.Structures = new List<Structure>();
+            this.Structures = new List<IStructure>();
             this.Structures.AddRange(value);
+        }
+
+        /// <summary>
+        /// The number of individual structure links
+        /// </summary>
+        public int OutputEdgesCount
+        {
+            get
+            {
+                return this.Edges.Values.Sum(edges => edges.Where(e => e.SourceNodeKey == this.Key && e.Directional).Sum(e => e.SourceConnectionCount));
+            }
+        }
+
+        /// <summary>
+        /// The number of individual structure links
+        /// </summary>
+        public int InputEdgesCount
+        {
+            get
+            {
+                return this.Edges.Values.Sum(edges => edges.Where(e => e.TargetNodeKey == this.Key && e.Directional).Sum(e => e.TargetConnectionCount));
+            }
+        }
+
+        public int BidirectionalEdgesCount
+        {
+            get
+            {
+                return this.Edges.Values.Sum(edges => edges.Where(e => !e.Directional).Sum(e => e.SourceConnectionCount));
+            }
         }
 
         public override string ToString()
         {
             string Label = this.Key;
 
-            foreach (Structure s in Structures)
+            foreach (IStructure s in Structures)
             {
                 Label = Label + ", " + s.ID.ToString();
             }
@@ -105,15 +164,7 @@ namespace AnnotationVizLib
     
 
     public class MotifGraph : Graph<string, MotifNode, MotifEdge>
-    {
-         
-        public SortedList<string, List<AnnotationService.Structure>> LabelToStructures = null; 
-
-        SortedDictionary<long, Structure> ChildIDToParent = new SortedDictionary<long,Structure>();
-        SortedDictionary<long, Structure> IDToStructure = new SortedDictionary<long,Structure>();
-
-        SortedDictionary<long, StructureType> TypeIDToType;
-
+    {  
         public MotifGraph()
         {
             
@@ -142,119 +193,6 @@ namespace AnnotationVizLib
             }
 
             return Label; 
-        }
-
-        public static MotifGraph BuildGraph(string Endpoint, System.Net.NetworkCredential userCredentials)
-        {
-            ConnectionFactory.SetConnection(Endpoint, userCredentials);          
-
-            MotifGraph graph = new MotifGraph(); 
-
-            using (AnnotateStructureTypesClient proxy = ConnectionFactory.CreateStructureTypesClient())
-            {
-                graph.TypeIDToType = Queries.GetStructureTypes(proxy);
-                //graph.LabelToStructures = Queries.LabelToStructuresMap(proxy);
-
-                //UnmappedStructures = new List<long>(graph.LabelToStructures.Count * 4);
-            }
-
-            using (AnnotateStructuresClient proxy = ConnectionFactory.CreateStructuresClient())
-            {
-                StructureLink[] AllStructureLinks = proxy.GetLinkedStructures();
-                SortedDictionary<long, List<StructureLink>> StructIDToLinks = Queries.GetLinkedStructures(AllStructureLinks);
-
-                //Find the parents of the linked structures, if they exist
-                Structure[] linkedStructures = Queries.GetStructuresByIDs(proxy, StructIDToLinks.Keys.ToArray());
-                List<long> ParentIDs = new List<long>(linkedStructures.Count());
-                foreach (Structure s in linkedStructures)
-                {
-                    if (s.ParentID.HasValue)
-                    {
-                        graph.IDToStructure.Add(s.ID, s);
-                        if (!ParentIDs.Contains(s.ParentID.Value))
-                            ParentIDs.Add(s.ParentID.Value);
-                    }
-                }
-
-                ParentIDs.Sort();
-
-                Structure[] ParentStructures = Queries.GetStructuresByIDs(proxy, ParentIDs.ToArray()); //Don't query child structures because we know the linked ones
-                foreach (Structure s in ParentStructures)
-                {
-
-                    if (graph.IDToStructure.ContainsKey(s.ID))
-                    {
-                        Trace.WriteLine(s.ID.ToString() + " uses another child structure as a parent");
-                        continue;
-                    }
-
-                    graph.IDToStructure.Add(s.ID, s);
-                }
-
-                graph.LabelToStructures = Queries.LabelToStructuresMap(ParentStructures);
-
-                foreach (Structure s in linkedStructures)
-                {
-                    if (s.ParentID.HasValue)
-                    {
-                        long ParentID = s.ParentID.Value;
-                        Debug.Assert(graph.IDToStructure.ContainsKey(ParentID));
-                        Structure Parent = graph.IDToStructure[ParentID];
-                        graph.ChildIDToParent[s.ID] = Parent;
-                        List<long> children = Parent.ChildIDs == null ? new List<long>() : new List<long>(Parent.ChildIDs);
-                        children.Add(s.ID);
-                        Parent.ChildIDs = children.ToArray();
-                    }
-                }
-
-                foreach (string Label in graph.LabelToStructures.Keys)
-                {
-                    List<Structure> StructuresForLabel = graph.LabelToStructures[Label];
-                    MotifNode node = new MotifNode(Label, StructuresForLabel);
-                    graph.AddNode(node);
-                }
-                 
-                //OK, build some edges
-                SortedDictionary<MotifEdge, MotifEdge> dictEdges = new SortedDictionary<MotifEdge, MotifEdge>(); 
-                foreach (StructureLink link in AllStructureLinks)
-                { 
-                    try
-                    {
-                        Structure SourceStructure = graph.IDToStructure[link.SourceID];
-
-                        StructureType type = graph.TypeIDToType[SourceStructure.TypeID];
-                        string ConnectionLabel = type.Name;
-
-                        Structure ParentOfSource = graph.ChildIDToParent[link.SourceID];
-                        Structure ParentOfTarget = graph.ChildIDToParent[link.TargetID];
-
-                        string SourceLabel = Queries.BaseLabel(ParentOfSource.Label);
-                        string TargetLabel = Queries.BaseLabel(ParentOfTarget.Label);
-
-                        MotifEdge edge = new MotifEdge(SourceLabel, TargetLabel, ConnectionLabel);
-
-                        if (!dictEdges.ContainsKey(edge))
-                            dictEdges.Add(edge,edge);
-                        else
-                            edge = dictEdges[edge];
-
-                        edge.AddEdgeInstance(ParentOfSource.ID, ParentOfTarget.ID); 
-                    }
-
-                    catch (System.Collections.Generic.KeyNotFoundException e)
-                    {
-                        //Add it to the UnmappedStructures pile
-                        Trace.WriteLine(e.Message); 
-                        //Debug.Fail("Why do we not have a mapping for this object, DB change during query? " + e.Message);
-                        continue;
-                    }
-                }
-
-                foreach( MotifEdge edge in dictEdges.Values)
-                    graph.AddEdge(edge);
-            }
-
-            return graph; 
         }
 
 

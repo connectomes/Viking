@@ -12,6 +12,7 @@ using Viking.UI.Commands;
 using WebAnnotation.ViewModel;
 using WebAnnotationModel;
 using VikingXNAGraphics;
+using VikingXNAWinForms;
 
 using Viking.Common; 
 
@@ -91,8 +92,8 @@ namespace WebAnnotation.UI.Commands
                                                 Parent.Section.Number,
                                                 LocationType.CIRCLE);
 
-                newLocation.MosaicShape = SqlGeometryUtils.GeometryExtensions.ToCircle(SectionPos.X, SectionPos.Y, Parent.Section.Number, 16.0);
-                newLocation.VolumeShape = SqlGeometryUtils.GeometryExtensions.ToCircle(WorldPos.X, WorldPos.Y, Parent.Section.Number, 16.0);
+                newLocation.MosaicShape = SqlGeometryUtils.Extensions.ToCircle(SectionPos.X, SectionPos.Y, Parent.Section.Number, 16.0);
+                newLocation.VolumeShape = SqlGeometryUtils.Extensions.ToCircle(WorldPos.X, WorldPos.Y, Parent.Section.Number, 16.0);
 
                 Viking.UI.Commands.Command.EnqueueCommand(typeof(ResizeCircleCommand), new object[] { Parent, Type.Color, WorldPos,
                         new ResizeCircleCommand.OnCommandSuccess((double radius) => 

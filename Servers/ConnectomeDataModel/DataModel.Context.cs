@@ -38,6 +38,8 @@ namespace ConnectomeDataModel
         public virtual DbSet<Structure> Structures { get; set; }
         public virtual DbSet<StructureType> StructureTypes { get; set; }
         public virtual DbSet<StructureLink> StructureLinks { get; set; }
+        public virtual DbSet<PermittedStructureLink> PermittedStructureLink { get; set; }
+        public virtual DbSet<StructureSpatialCache> StructureSpatialCaches { get; set; }
     
         public virtual ObjectResult<ApproximateStructureLocation_Result> ApproximateStructureLocation(Nullable<int> structureID)
         {
@@ -907,6 +909,95 @@ namespace ConnectomeDataModel
                 new ObjectParameter("QueryDate", typeof(System.DateTime));
     
             return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction<Structure>("SelectSectionAnnotationsInVolumeBounds", mergeOption, zParameter, bBoxParameter, minRadiusParameter, queryDateParameter);
+        }
+    
+        public virtual ObjectResult<Structure> SelectNetworkChildStructures(Nullable<int> hops)
+        {
+            var hopsParameter = hops.HasValue ?
+                new ObjectParameter("Hops", hops) :
+                new ObjectParameter("Hops", typeof(int));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction<Structure>("SelectNetworkChildStructures", hopsParameter);
+        }
+    
+        public virtual ObjectResult<Structure> SelectNetworkChildStructures(Nullable<int> hops, MergeOption mergeOption)
+        {
+            var hopsParameter = hops.HasValue ?
+                new ObjectParameter("Hops", hops) :
+                new ObjectParameter("Hops", typeof(int));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction<Structure>("SelectNetworkChildStructures", mergeOption, hopsParameter);
+        }
+    
+        public virtual int SelectNetworkChildStructureIDs(Nullable<int> hops)
+        {
+            var hopsParameter = hops.HasValue ?
+                new ObjectParameter("Hops", hops) :
+                new ObjectParameter("Hops", typeof(int));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SelectNetworkChildStructureIDs", hopsParameter);
+        }
+    
+        public virtual int SelectNetworkStructureIDs(Nullable<int> hops)
+        {
+            var hopsParameter = hops.HasValue ?
+                new ObjectParameter("Hops", hops) :
+                new ObjectParameter("Hops", typeof(int));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SelectNetworkStructureIDs", hopsParameter);
+        }
+    
+        public virtual int SplitStructure(Nullable<long> locationIDOfSplitStructure, ObjectParameter splitStructureID)
+        {
+            var locationIDOfSplitStructureParameter = locationIDOfSplitStructure.HasValue ?
+                new ObjectParameter("LocationIDOfSplitStructure", locationIDOfSplitStructure) :
+                new ObjectParameter("LocationIDOfSplitStructure", typeof(long));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SplitStructure", locationIDOfSplitStructureParameter, splitStructureID);
+        }
+    
+        public virtual int SplitStructureByLocationLink(Nullable<long> locationIDOfKeepStructure, Nullable<long> locationIDOfSplitStructure, ObjectParameter splitStructureID)
+        {
+            var locationIDOfKeepStructureParameter = locationIDOfKeepStructure.HasValue ?
+                new ObjectParameter("LocationIDOfKeepStructure", locationIDOfKeepStructure) :
+                new ObjectParameter("LocationIDOfKeepStructure", typeof(long));
+    
+            var locationIDOfSplitStructureParameter = locationIDOfSplitStructure.HasValue ?
+                new ObjectParameter("LocationIDOfSplitStructure", locationIDOfSplitStructure) :
+                new ObjectParameter("LocationIDOfSplitStructure", typeof(long));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SplitStructureByLocationLink", locationIDOfKeepStructureParameter, locationIDOfSplitStructureParameter, splitStructureID);
+        }
+    
+        public virtual int SplitStructureAtLocationLink(Nullable<long> locationIDOfKeepStructure, Nullable<long> locationIDOfSplitStructure, ObjectParameter splitStructureID)
+        {
+            var locationIDOfKeepStructureParameter = locationIDOfKeepStructure.HasValue ?
+                new ObjectParameter("LocationIDOfKeepStructure", locationIDOfKeepStructure) :
+                new ObjectParameter("LocationIDOfKeepStructure", typeof(long));
+    
+            var locationIDOfSplitStructureParameter = locationIDOfSplitStructure.HasValue ?
+                new ObjectParameter("LocationIDOfSplitStructure", locationIDOfSplitStructure) :
+                new ObjectParameter("LocationIDOfSplitStructure", typeof(long));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SplitStructureAtLocationLink", locationIDOfKeepStructureParameter, locationIDOfSplitStructureParameter, splitStructureID);
+        }
+    
+        public virtual int SelectNetworkChildStructureSpatialData(Nullable<int> hops)
+        {
+            var hopsParameter = hops.HasValue ?
+                new ObjectParameter("Hops", hops) :
+                new ObjectParameter("Hops", typeof(int));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SelectNetworkChildStructureSpatialData", hopsParameter);
+        }
+    
+        public virtual int SelectNetworkStructureSpatialData(Nullable<int> hops)
+        {
+            var hopsParameter = hops.HasValue ?
+                new ObjectParameter("Hops", hops) :
+                new ObjectParameter("Hops", typeof(int));
+    
+            return ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SelectNetworkStructureSpatialData", hopsParameter);
         }
     }
 }

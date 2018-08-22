@@ -10,6 +10,7 @@ using SqlGeometryUtils;
 using WebAnnotation.ViewModel;
 using connectomes.utah.edu.XSD.WebAnnotationUserSettings.xsd;
 using WebAnnotation.UI;
+using Viking.VolumeModel;
 
 namespace WebAnnotation
 {
@@ -50,34 +51,16 @@ namespace WebAnnotation
         {
             return ModifierKeys == System.Windows.Forms.Keys.Control;
         }
-    }
-
-    public static class ColorExtensions
-    {
-        public static Microsoft.Xna.Framework.Color ToXNAColor(this System.Drawing.Color color)
-        {
-            return new Microsoft.Xna.Framework.Color((int)color.R,
-                                                    (int)color.G,
-                                                    (int)color.B,
-                                                    (int)color.A);
-        }
-
-        public static Microsoft.Xna.Framework.Color ToXNAColor(this System.Drawing.Color color, float alpha)
-        {
-            return new Microsoft.Xna.Framework.Color((int)color.R,
-                                                    (int)color.G,
-                                                    (int)color.B,
-                                                    (int)(255f * alpha));
-        }
-    }
+    } 
 
     public static class HitTestResultExtensions
     {
         
         /// <summary>
         /// Select annotations in this order
-        /// 1. Locations on our section or Structure Links, whichever is closer
+        /// 1. Locations on our section or Structure Links, whichever is closer, with a max distance <= 1.  (>1 indicates mouse is not over the annotation, or is in a polygon hole)
         /// 2. Locations on adjacent section
+        /// 3. Locations who have a distance greater than 1
         /// 3. Location Links
         /// </summary>
         /// <param name="listHitTestObjects"></param>
@@ -90,25 +73,38 @@ namespace WebAnnotation
 
             List<HitTestResult> listLocations = listHitTestObjects.Where(l => l.obj as IViewLocation != null).ToList();
             List<HitTestResult> listLocationsOnSection = listLocations.Where(l => l.Z == SectionNumber).ToList();
+            List<HitTestResult> listLocationsOnSectionContainsPoint = listLocationsOnSection.Where(l => l.Distance <= 1.0).ToList();
+            List<HitTestResult> listStructureLinks = listHitTestObjects.Where(h => h.obj as IViewStructureLink != null).ToList();
 
-            if (listLocationsOnSection.Count > 0)
+            List<HitTestResult> listLocationsOnSectionContainingPointAndStructureLinks = new List<HitTestResult>(listLocationsOnSectionContainsPoint);
+            listLocationsOnSectionContainingPointAndStructureLinks.AddRange(listStructureLinks);
+
+            if (listLocationsOnSectionContainingPointAndStructureLinks.Count > 0)
             {
-                listLocationsOnSection.Sort(new HitTest_Z_Depth_Distance_Sorter());
-                return listLocationsOnSection.First();
-            } 
-            else if (listLocations.Count > 0)
-            {
-                List<HitTestResult> listObjectsOnAdjacentSection = listLocations.ToList();
-                listObjectsOnAdjacentSection.Sort(new HitTest_Z_Depth_Distance_Sorter());
-                return listHitTestObjects.First();
+                listLocationsOnSectionContainingPointAndStructureLinks.Sort(new HitTest_Z_Depth_Distance_Sorter());
+                return listLocationsOnSectionContainingPointAndStructureLinks.First();
             }
 
-            List<HitTestResult> listStructureLinks = listHitTestObjects.Where(h => h.obj as IViewStructureLink != null).ToList();
+            List<HitTestResult> listObjectsOnAdjacentSection = listLocations.Where(l => l.Z != SectionNumber).ToList();
+            if (listObjectsOnAdjacentSection.Count > 0)
+            {
+                listObjectsOnAdjacentSection.Sort(new HitTest_Distance_Sorter());
+                return listObjectsOnAdjacentSection.First();
+            }
+
+            if(listLocations.Count > 0)
+            {
+                listLocations.Sort(new HitTest_Z_Depth_Distance_Sorter());
+                return listLocations.First();
+            }
+
+            /*
             if(listStructureLinks.Count > 0)
             {
                 listStructureLinks.Sort(new HitTest_Z_Distance_Sorter());
                 return listStructureLinks.First();
             }
+            */
 
             //OK, no locations or structure links, return what is left by distance
             List<HitTestResult> remaining = new List<HitTestResult>(listHitTestObjects);
@@ -181,6 +177,8 @@ namespace WebAnnotation
                     return WebAnnotationModel.LocationType.POINT;
                 case "Ellipse":
                     return WebAnnotationModel.LocationType.ELLIPSE;
+                case "CurvePolygon":
+                    return WebAnnotationModel.LocationType.CURVEPOLYGON;
                 default:
                     return WebAnnotationModel.LocationType.CIRCLE;
             }
@@ -238,69 +236,41 @@ namespace WebAnnotation
             GridVector3 p = new GridVector3(vPos.X * Global.Scale.X, vPos.Y * Global.Scale.Y, l.Z * Global.Scale.Z);
             return GridVector3.Distance(p, origin);
         }
-    }
 
-    internal static class MappingExtensions
-    { 
+         
+
         /// <summary>
-        /// A faster mapping technique for geometries that do not use control points such as circles and points.
+        /// Takes unsmoothed points and sets both the mosaic and volume shape for a locationObj
         /// </summary>
-        /// <param name="loc"></param>
-        /// <returns></returns>
-        private static bool MapLocationCentroidToVolume(this Viking.VolumeModel.IVolumeToSectionTransform mapper, WebAnnotationModel.LocationObj loc)
+        /// <param name="mapper"></param>
+        /// <param name="location"></param>
+        /// <param name="volumePoints"></param>
+        /// <param name="volume_innerRingPoints"></param>
+        public static void TrySetShapeFromGeometryInSectionShowErrorDialog(this WebAnnotationModel.LocationObj location, System.Windows.Window parent, Viking.VolumeModel.IVolumeToSectionTransform mapper, Microsoft.SqlServer.Types.SqlGeometry shape)
         {
-            //Don't bother mapping if the location was already mapped
-            if (loc.VolumeTransformID == mapper.ID)
-                return true;
-
-            GridVector2 VolumePosition = new GridVector2(-1, -1);
-
-            bool mappedPosition = mapper.TrySectionToVolume(loc.Position, out VolumePosition);
-            if (!mappedPosition) //Remove locations we can't map
+            try
             {
-                Trace.WriteLine("MapLocationToVolumeByCentroid: Location #" + loc.ID.ToString() + " was unmappable.", "WebAnnotation");
+                Viking.VolumeModel.LocationObjExtensions.SetShapeFromGeometryInSection(location, mapper, shape);
+            }
+            catch (ArgumentException e)
+            {
+                System.Windows.MessageBox.Show(parent, e.Message, "Could not save Polygon", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            } 
+        }  
+
+        public static bool IsLastEditedAnnotation(this WebAnnotationModel.LocationObj loc)
+        { 
+            if (!Global.LastEditedAnnotationID.HasValue)
+            {
                 return false;
             }
-            
-            loc.VolumeTransformID = mapper.ID;
-            if (VolumePosition != loc.VolumePosition)
-                loc.VolumeShape = loc.VolumeShape.MoveTo(VolumePosition);
 
-            //loc.VolumePosition = VolumePosition;
-
-            return true;
+            return Global.LastEditedAnnotationID.Value == loc.ID;
         }
 
-        public static Microsoft.SqlServer.Types.SqlGeometry TryMapShapeSectionToVolume(this Viking.VolumeModel.IVolumeToSectionTransform mapper, Microsoft.SqlServer.Types.SqlGeometry shape)
-        {
-            GridVector2[] VolumePositions;
-            GridVector2[] points = shape.ToPoints();
-
-            bool[] mappedPosition = mapper.TrySectionToVolume(points, out VolumePositions);
-            if (mappedPosition.Any(success => success == false)) //Remove locations we can't map
-            {
-                Trace.WriteLine("MapShapeSectionToVolume: Shape #" + shape.ToString() + " was unmappable.", "WebAnnotation");
-                return null;
-            }
-
-            return SqlGeometryUtils.GeometryExtensions.ToGeometry(shape.STGeometryType(), VolumePositions);
-        }
-
-        public static Microsoft.SqlServer.Types.SqlGeometry TryMapShapeVolumeToSection(this Viking.VolumeModel.IVolumeToSectionTransform mapper, Microsoft.SqlServer.Types.SqlGeometry shape)
-        {
-            GridVector2[] SectionPositions;
-            GridVector2[] points = shape.ToPoints();
-
-            bool[] mappedPosition = mapper.TryVolumeToSection(points, out SectionPositions);
-            if (mappedPosition.Any(success => success == false)) //Remove locations we can't map
-            {
-                Trace.WriteLine("MapShapeSectionToVolume: Shape #" + shape.ToString() + " was unmappable.", "WebAnnotation");
-                return null;
-            }
-
-            return SqlGeometryUtils.GeometryExtensions.ToGeometry(shape.STGeometryType(), SectionPositions);
-        }
     }
+
+
 
     public static class LINQLikeExtensions
     {

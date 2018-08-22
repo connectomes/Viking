@@ -1,11 +1,15 @@
-﻿using System;
+﻿#define USEASPMEMBERSHIP
+
+using System;
 using System.Resources;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.IO;
 using System.Diagnostics;
 using System.Reflection;
-using Viking.UI.Forms; 
+using Viking.UI.Forms;
+
+
 
 namespace Viking
 {
@@ -51,15 +55,24 @@ namespace Viking
 
             Trace.WriteLine("Arguments: " + args.ToString(), "Viking");
             Trace.WriteLine("Current Directory: " + System.Environment.CurrentDirectory, "Viking");
-            Trace.WriteLine("Application Directory: " + System.IO.Path.GetDirectoryName(execAssembly.CodeBase), "Viking");
+            Trace.WriteLine("Application Directory: " + execAssembly.Location, "Viking");
 #if DEBUG
-  //          System.Diagnostics.Debugger.Break();
+            //          System.Diagnostics.Debugger.Break();
 #endif
 
             //Change to the executing assemblies directory so we can load modules correctly
             //  System.Environment.CurrentDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-
+            System.Data.Entity.SqlServer.SqlProviderServices.SqlServerTypesAssemblyName = "Microsoft.SqlServer.Types, Version=14.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91";
             SqlServerTypes.Utilities.LoadNativeAssemblies(AppDomain.CurrentDomain.BaseDirectory);
+
+            try
+            {
+                MathNet.Numerics.Control.UseNativeMKL();
+            }
+            catch(Exception e)
+            {
+                Trace.WriteLine("Unable to load Native MKL library.  Exception text:\n" + e.Message);
+            }
 
             int workThreads;
             int portThreads;
@@ -148,8 +161,8 @@ namespace Viking
             //   Logon nag screen, I've only added this tiny code here, and made a logon form in 
             //  Viking/UI/forms
 
-
-            using (Logon vikingLogon = new Logon("https://connectomes.utah.edu/Viz/Account/Authenticate", website))
+#if !USEASPMEMBERSHIP
+            using (Logon vikingLogon = new Logon("https://connectomes.utah.edu/Viz/", website))
             {
                 vikingLogon.ShowDialog();
 
@@ -159,20 +172,31 @@ namespace Viking
                 }
 
                 website = vikingLogon.VolumeURL;
+
+                UI.State.UserBearerToken = vikingLogon.BearerToken;
                 UI.State.UserCredentials = vikingLogon.Credentials;
 
+                Viking.Tokens.TokenInjector.BearerToken = vikingLogon.BearerToken;
+                Viking.Tokens.TokenInjector.BearerTokenAuthority = "https://webdev.connectomes.utah.edu/identityserver";
             }
+#else
+            using (LogonASPMembership vikingLogon = new LogonASPMembership("https://connectomes.utah.edu/Viz/", website))
+            {
+                vikingLogon.ShowDialog();
+
+                if (vikingLogon.Result == DialogResult.Cancel)
+                {
+                    return;
+                }
+
+                website = vikingLogon.VolumeURL;
+                UI.State.UserCredentials = vikingLogon.Credentials;
+            }
+
+#endif 
 
             //Make sure the website includes a file, if it does not then include Volume.VikingXML by default
-            Uri WebsiteURI = new Uri(website);
-            string path = WebsiteURI.GetComponents(UriComponents.Path, UriFormat.SafeUnescaped);
-            if (path.Contains(".") == false)
-            {
-                if (website.EndsWith("/") == false)
-                    website = website + "/";
-
-                website = website + "volume.vikingxml";
-            }
+            website = Viking.Common.Util.AppendDefaultVolumeFilenameIfMissing(website);
 
             // --------------------------------------------------------------------------------------
 
@@ -199,11 +223,13 @@ namespace Viking
                 DebugLogFile.Close(); 
         }
 
+       
+
         [Conditional("DEBUG")]
         private static void CreateDebugListener()
         {
             return; 
-
+            /*
             string LogPath = System.Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Viking\\Logs";
             if (!Directory.Exists(LogPath))
                 Directory.CreateDirectory(LogPath);
@@ -224,6 +250,7 @@ namespace Viking
             Debug.Listeners.Add(DebugOutputListener);
 
             Trace.UseGlobalLock = true; 
+            */
         }
     }
 }

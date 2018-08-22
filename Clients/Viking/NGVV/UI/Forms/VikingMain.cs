@@ -77,7 +77,10 @@ namespace Viking
             ThreadPool.QueueUserWorkItem(Global.TextureCache.ReduceCacheFootprint, null);
             ThreadPool.QueueUserWorkItem(Global.TileViewModelCache.ReduceCacheFootprint, null);
             ThreadPool.QueueUserWorkItem(Viking.VolumeModel.Global.TileCache.ReduceCacheFootprint, null);
-            ThreadPool.QueueUserWorkItem(Viking.UI.State.volume.ReduceCacheFootprint, null);
+
+            if(Viking.UI.State.volume != null)
+                ThreadPool.QueueUserWorkItem(Viking.UI.State.volume.ReduceCacheFootprint, null);
+
 
             /*
             if (DiskCleanupThread == null)
@@ -204,7 +207,7 @@ namespace Viking
                 MappingBase map = Viking.UI.State.volume.GetTileMapping(null, DefaultSection.Number, null, null);
                 if (map != null)
                 {
-                    Geometry.GridVector2 Center = map.Bounds.Center;
+                    Geometry.GridVector2 Center = map.ControlBounds.Center;
                     SectionViewer.GoToLocation(new Vector2((float)Center.X, (float)Center.Y), DefaultSection.Number, true);
                 }
             }

@@ -40,8 +40,9 @@ namespace ConnectomeDataModel
         public string Username { get; set; }
         public System.Data.Entity.Spatial.DbGeometry MosaicShape { get; set; }
         public System.Data.Entity.Spatial.DbGeometry VolumeShape { get; set; }
+        public Nullable<double> Width { get; set; }
     
-        public virtual Structure Structure { get; set; }
+        public virtual Structure Parent { get; set; }
         public virtual ICollection<LocationLink> LocationLinksA { get; set; }
         public virtual ICollection<LocationLink> LocationLinksB { get; set; }
     }

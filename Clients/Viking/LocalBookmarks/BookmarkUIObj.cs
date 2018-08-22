@@ -3,30 +3,79 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Viking.Common;
-using connectomes.utah.edu.XSD.BookmarkSchema.xsd;
+using connectomes.utah.edu.XSD.BookmarkSchemaV2.xsd;
 using LocalBookmarks;
 using Geometry;
 using Viking.UI.Controls;
 using Viking.Common.UI;
+using VikingXNAGraphics;
 
 namespace LocalBookmarks
 {
     [TreeViewVisible()]
     partial class BookmarkUIObj : UIObjTemplate<Bookmark>
     {
-        internal static float LabelScaleFactor = 2.25f; 
+        internal static float LabelScaleFactor = 2.25f;
+
+        public VikingXNAGraphics.TextureOverlayView _shapeView;
+        public VikingXNAGraphics.LabelView _labelView;
 
         public BookmarkUIObj(FolderUIObj parent)
         {
             Data = new Bookmark();
             Parent = parent;
+                        
             this.CallOnCreate();
+        }
+
+        public void UpdateView()
+        {
+            _labelView = new VikingXNAGraphics.LabelView(this.Name, this.GridPosition);
+            _labelView.FontSize = Global.DefaultBookmarkRadius / 2.5;
+            GridRectangle boundingRect = new GridRectangle(GridPosition, Global.DefaultBookmarkRadius);
+            _shapeView = new VikingXNAGraphics.TextureOverlayView(Parent.ShapeTexture, boundingRect, Parent.Color.SetAlpha(0.75f));
         }
 
         public BookmarkUIObj(FolderUIObj parent, Bookmark bookmark)
         {
             Data = bookmark;
             _Parent = parent;
+
+            UpdateView();
+        }
+
+        public VikingXNAGraphics.TextureOverlayView ShapeView
+        {
+            get
+            {
+                if(_shapeView == null)
+                {
+                    UpdateView();
+                }
+                return _shapeView;
+            }
+        }
+
+        public VikingXNAGraphics.LabelView LabelView
+        {
+            get
+            {
+                if(_labelView == null)
+                {
+                    UpdateView();
+                }
+
+                return _labelView; 
+            }
+            
+        }
+
+        public GridRectangle BoundingRect
+        {
+            get
+            {
+                return new GridRectangle(GridPosition, Global.DefaultBookmarkRadius);
+            }
         }
 
         protected static event EventHandler OnCreate;
@@ -47,27 +96,40 @@ namespace LocalBookmarks
 
         public override string Name
         {
-            get { return Data.name; }
+            get { return Data.Name; }
             set
             {
-                Data.name = value;
-                if (Data.name == null)
-                    Data.name = ""; 
+                Data.Name = value;
+                if (Data.Name == null)
+                    Data.Name = ""; 
 
-                _LabelSizeMeasured = false; 
+                _LabelSizeMeasured = false;
+                LabelView.Text = value; 
                 ValueChangedEvent("Name"); 
             }
         }
 
-        public Position Position
+        public Point2D Position
         {
-            get { if(Data.Position == null)
-                    Data.Position = new Position();
-                  return Data.Position;
+            get { if(Data.VolumePosition == null)
+                    Data.VolumePosition = new Point2D();
+                  return Data.VolumePosition;
             }
             set
             {
-                Data.Position = value; 
+                Data.VolumePosition = value; 
+            }
+        }
+
+        public Point2D MosaicPosition
+        {
+            get
+            {
+                return Data.MosaicPosition;
+            }
+            set
+            {
+                Data.MosaicPosition = value;
             }
         }
 
@@ -92,7 +154,7 @@ namespace LocalBookmarks
 
         public double X
         {
-            get { return System.Convert.ToDouble(Data.Position.X); }
+            get { return System.Convert.ToDouble(Data.VolumePosition.X); }
             set
             {
                 Position.X = (float)value;
@@ -102,7 +164,7 @@ namespace LocalBookmarks
 
         public double Y
         {
-            get { return System.Convert.ToDouble(Data.Position.Y); }
+            get { return System.Convert.ToDouble(Data.VolumePosition.Y); }
             set
             {
                 Position.Y = (float)value;
@@ -112,10 +174,10 @@ namespace LocalBookmarks
 
         public int Z
         {
-            get { return System.Convert.ToInt32(Math.Round(Data.Position.Z)); }
+            get { return System.Convert.ToInt32(Math.Round(Data.Z)); }
             set
             {
-                Position.Z = (float)value;
+                Data.Z = (float)value;
                 ValueChangedEvent("Z");
             }
         }
@@ -233,6 +295,5 @@ namespace LocalBookmarks
             _LabelSizeMeasured = true;
             return _LabelSize;
         }
-
     }
 }

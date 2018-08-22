@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>LocalBookmarks</RootNamespace>
     <AssemblyName>LocalBookmarks</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <XnaFrameworkVersion>v4.0</XnaFrameworkVersion>
     <XnaPlatform>Windows</XnaPlatform>
     <XnaCrossPlatformGroupID>5b34532b-0192-4f59-9d89-5a2a84e7db12</XnaCrossPlatformGroupID>
@@ -111,8 +111,12 @@
     <Reference Include="WindowsBase">
       <RequiredTargetFramework>3.0</RequiredTargetFramework>
     </Reference>
-    <Reference Include="Xml.Schema.Linq">
+    <Reference Include="Xml.Schema.Linq, Version=2.0.2.56002, Culture=neutral, PublicKeyToken=47d0c84d0ebb13e5, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\Libs\LinqToXSD\2.0.2\Xml.Schema.Linq.dll</HintPath>
+    </Reference>
+    <Reference Include="XOTask">
+      <HintPath>..\..\Libs\LinqToXSD\2.0.2\XOTask.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -127,8 +131,12 @@
     <Compile Include="bookmarkschema.cs">
       <DependentUpon>BookmarkSchema.xsd</DependentUpon>
     </Compile>
+    <Compile Include="BookmarkSchemaV2.cs">
+      <DependentUpon>BookmarkSchemaV2.xsd</DependentUpon>
+    </Compile>
     <Compile Include="BookmarkUIObj.cs" />
     <Compile Include="CreateBookmarkCommand.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="FolderGeneralPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -142,6 +150,9 @@
     <Compile Include="FolderUIObj.cs" />
     <Compile Include="Global.cs" />
     <Compile Include="HTMLExporter.cs" />
+    <Compile Include="MigrateV1ToV2.cs" />
+    <Compile Include="Position.cs" />
+    <Compile Include="Point2D.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UIObjTemplate.cs" />
   </ItemGroup>
@@ -194,24 +205,35 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Common\Common.csproj">
-      <Project>{B35B0C61-EC9C-425A-846D-F160D5B12158}</Project>
-      <Name>Common</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\..\Geometry\Geometry.csproj">
-      <Project>{EACB87E8-A5E3-417E-A9EF-B80C2A68C020}</Project>
+      <Project>{eacb87e8-a5e3-417e-a9ef-b80c2a68c020}</Project>
       <Name>Geometry</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\NGVV\VikingCore.csproj">
-      <Project>{AEB1B24B-C968-40F9-B9F5-5C1FCE2EFD6D}</Project>
-      <Name>VikingCore</Name>
+    <ProjectReference Include="..\..\Common\Common.csproj">
+      <Project>{b35b0c61-ec9c-425a-846d-f160d5b12158}</Project>
+      <Name>Common</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\VikingXNAGraphics\VikingXNAGraphics.csproj">
-      <Project>{7EDE0B00-89F9-4EF5-A629-2ED66CEE273B}</Project>
+    <ProjectReference Include="..\..\MonogameXNAGraphicsShared\VikingXNAGraphics.csproj">
+      <Project>{7ede0b00-89f9-4ef5-a629-2ed66cee273b}</Project>
       <Name>VikingXNAGraphics</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\VolumeModel\VolumeModel.csproj">
+      <Project>{2eba2a77-f7f0-4efc-ac06-a12fe249388f}</Project>
+      <Name>VolumeModel</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\NGVV\VikingCore.csproj">
+      <Project>{aeb1b24b-c968-40f9-b9f5-5c1fce2efd6d}</Project>
+      <Name>VikingCore</Name>
+      <Private>False</Private>
+      <EmbedInteropTypes>False</EmbedInteropTypes>
+    </ProjectReference>
+    <ProjectReference Include="..\VikingXNAWinForms\VikingXNAWinForms.csproj">
+      <Project>{8e2f9eac-3b70-46fe-b8d6-7a04b9d183b9}</Project>
+      <Name>VikingXNAWinForms</Name>
       <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="Content\LocalBookmarksContent.contentproj">
@@ -221,7 +243,13 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="BookmarkSchema.xsd" />
+    <None Include="app.config" />
+    <None Include="BookmarkSchema.xsd">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="BookmarkSchemaV2.xsd">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="BookmarkGeneralPage.resx">

@@ -1,7 +1,31 @@
 
-###############
-Version History
-###############
+###################
+Version Information
+###################
+
+1.1.271
+-------
+
+	2018-08-20
+	
+	* Added a scale bar:
+		* Display can be toggled in the measurement overlay.
+		* **Use the measure tool if the exact length must be known because the scale bar does not account for local distortion.**
+	* Fixed a bug preventing selection of an annotation on an adjacent section that was drawn in the hole of a polygonal annotation
+	* Possibly improved error messages when authentication server is down
+	
+1.1.270
+-------
+
+	**2018-07-23**
+	
+	**Existing installations will see an error when upgrading to this version.  Users must uninstall and reinstall Viking.  Security improvements broke the auto-upgrade ability of previously installed versions.  Future versions should upgrade normally.**
+	 
+
+	* Improved the security of the binaries installed on users machines
+		* Viking uses an SSL connection to download the binaries.
+		* Viking application and deployment manifests are now signed with a certificate.
+	* Holding SHIFT during a measurement uses a perfectly horizontal line (useful for figure scale bars)
 
 1.1.186
 -------
@@ -124,9 +148,9 @@ Version History
 
 * Added ability for hotkey commands to automatically add tags to new structures via WebAnnotationUserSettings.xml file
    
-   * Ctrl+R : Create new ribbon post-synapse with “Bipolar”, “Ribbon”, “Glutamate” tags.
-   * Ctrl+S : Create new conventional post-synapse with “Conventional” tag.
-   * Ctrl+B : Create new conventional glutamatergic post-synapse with “Bipolar”, “Conventional”, “Glutamate” tags.
+   * Ctrl+R : Create new ribbon post-synapse with â€œBipolarâ€�, â€œRibbonâ€�, â€œGlutamateâ€� tags.
+   * Ctrl+S : Create new conventional post-synapse with â€œConventionalâ€� tag.
+   * Ctrl+B : Create new conventional glutamatergic post-synapse with â€œBipolarâ€�, â€œConventionalâ€�, â€œGlutamateâ€� tags.
     
 * Added support for hotkey commands to toggle structure attributes on/off.  Users can place the mouse over a structure and hit the hotkey to toggle one the following tags:  
    

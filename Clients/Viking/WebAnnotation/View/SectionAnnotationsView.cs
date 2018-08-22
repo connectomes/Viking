@@ -51,8 +51,10 @@ namespace WebAnnotation.ViewModel
 
             GridRectangle? VisibleMosaicBounds = scene.VisibleWorldBounds.ApproximateVisibleMosaicBounds(this.mapper);
 
-            if (VisibleMosaicBounds.HasValue)
-                Store.LocationsByRegion.LoadSectionAnnotationsInRegion(VisibleMosaicBounds.Value, scene.ScreenPixelSizeInVolume, this.SectionNumber, null, AddLocationsInLocalCache); // this.AddLocations, null);
+            if (!VisibleMosaicBounds.HasValue)
+                return;
+
+            Store.LocationsByRegion.LoadSectionAnnotationsInRegion(VisibleMosaicBounds, scene.ScreenPixelSizeInVolume, this.SectionNumber, null, AddLocationsInLocalCache); // this.AddLocations, null);
         }
 
         protected abstract void AddLocationsInLocalCache(IEnumerable<LocationObj> locations);
@@ -751,28 +753,23 @@ namespace WebAnnotation.ViewModel
             bool UpdateVolumeLocations = false;
             bool HaveUpdatedVolumePositionsToSubmit = false;
             long VolumePositionUpdatedCount = 0;
-            
+            /*
+             * 10/17/2016: This update feature was replaced by the VikingAU command-line tool
             if (this.SubmitUpdatedVolumePositions)// && this.mapper.ID == this.Section.VolumeViewModel.DefaultVolumeTransform) TODO: Add the line back in to prevent saving transforms when the mosaic transform has been changed
             {
                 UpdateVolumeLocations = true;
             }  
-                        
+               */         
+
             foreach(LocationObj loc in listLocations)
             {
                 if(AddLocation(loc, Subscribe, UpdateVolumeLocations))
                 {
                     VolumePositionUpdatedCount++; 
                     HaveUpdatedVolumePositionsToSubmit |= true; 
-                }
-                //Add the location to our mapping if the location is on our section
-                
-                   
-                   // Debug.Assert(Added);
-
-                //    AddLocationLinks(locView);
-                
+                } 
             }
-
+            /*
             if (UpdateVolumeLocations && HaveUpdatedVolumePositionsToSubmit)
             {
                 //System.Threading.ThreadPool.QueueUserWorkItem( f => { Store.Locations.Save(); } );
@@ -781,7 +778,7 @@ namespace WebAnnotation.ViewModel
 
                 Trace.WriteLine("Updated " + VolumePositionUpdatedCount.ToString() + " volume positions");
                 Store.Locations.Save(); 
-            }
+            }*/
         }
         
         /// <summary>
@@ -1110,8 +1107,8 @@ namespace WebAnnotation.ViewModel
             //Store.LocationsByRegion.LoadSectionAnnotationsInRegion(scene.VisibleWorldBounds, scene.ScreenPixelSizeInVolume, this.SectionNumber, this.AddLocationsInRegionCallback);
             GridRectangle? VisibleMosaicBounds = scene.VisibleWorldBounds.ApproximateVisibleMosaicBounds(this.mapper);
 
-            if (VisibleMosaicBounds.HasValue)
-                Store.LocationsByRegion.LoadSectionAnnotationsInRegion(VisibleMosaicBounds.Value, scene.ScreenPixelSizeInVolume, this.SectionNumber, null, AddLocationsInLocalCache);// this.AddLocationsInRegionCallback);
+            Store.LocationsByRegion.LoadSectionAnnotationsInRegion(VisibleMosaicBounds, scene.ScreenPixelSizeInVolume, this.SectionNumber, null, AddLocationsInLocalCache);// this.AddLocationsInRegionCallback);
+           
 
             if (this.SectionAbove != null)
             {
@@ -1193,7 +1190,7 @@ namespace WebAnnotation.ViewModel
         }
         
         public static void Draw(Microsoft.Xna.Framework.Graphics.GraphicsDevice graphicsDevice, VikingXNA.Scene scene, 
-                                BasicEffect basicEffect, VikingXNA.AnnotationOverBackgroundLumaEffect overlayEffect, 
+                                BasicEffect basicEffect, VikingXNAGraphics.AnnotationOverBackgroundLumaEffect overlayEffect, 
                                 RoundLineCode.RoundLineManager overlayLineManager, RoundCurve.CurveManager overlayCurveManager
                                 )
         {

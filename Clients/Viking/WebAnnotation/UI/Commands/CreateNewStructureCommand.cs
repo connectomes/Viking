@@ -37,7 +37,8 @@ namespace WebAnnotation.UI.Commands
            //Create the new structure
             LocationObj unused;
             Store.Structures.Create(newStruct, newLoc, out unused);
-
+            if(unused != null)
+                Global.LastEditedAnnotationID = unused.ID;
             base.Execute();
         }
     }

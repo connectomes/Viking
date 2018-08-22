@@ -12,34 +12,68 @@ using System.Security.Permissions;
 using System.Security;
 using System.Threading.Tasks;
 
-using Annotation.Service.Interfaces;
-using Annotation.Service.GraphClasses;
+using AnnotationService.Interfaces;
+using AnnotationService.Types;
 
 namespace Annotation
 {
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerCall)]
-    [AspNetCompatibilityRequirements(RequirementsMode= AspNetCompatibilityRequirementsMode.Required)]
-    public class AnnotateService : IAnnotateStructureTypes, IAnnotateStructures, IAnnotateLocations, IDisposable, ICircuit, ICredentials
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single, ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Required)]
+    public class AnnotateService : IAnnotateStructureTypes, IAnnotateStructures, IAnnotateLocations, ICircuit, ICredentials, IVolumeMeta
     {
- 
-        public AnnotateService()
+        static bool _isSqlTypesLoaded = false;
+
+        static object lockObject = new object();
+
+        public static void TryLoadSqlServerTypes()
         {
-            
+            if (_isSqlTypesLoaded)
+                return;
+
+            lock (lockObject)
+            {
+                if (_isSqlTypesLoaded)
+                    return;
+
+                try
+                {
+                 //   ConnectomeDataModel.Configuration.LoadNativeAssemblies(System.Web.HttpContext.Current.Server.MapPath("~"));
+                    SqlServerTypes.Utilities.LoadNativeAssemblies(System.Web.HttpContext.Current.Server.MapPath("~"));
+                    _isSqlTypesLoaded = true;
+                    return;
+                }
+                catch (NullReferenceException)
+                {
+                    SqlServerTypes.Utilities.LoadNativeAssemblies(AppDomain.CurrentDomain.BaseDirectory);
+                    //ConnectomeDataModel.Configuration.LoadNativeAssemblies(AppDomain.CurrentDomain.BaseDirectory);
+                    _isSqlTypesLoaded = true;
+                    return;
+                }
+            }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        static AnnotateService()
+        {
+            TryLoadSqlServerTypes(); 
+        }
+
+        public AnnotateService()
+        {
+        }
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         bool ICredentials.CanRead()
         {
             return true;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
         bool ICredentials.CanWrite()
         {
             return true;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Admin")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reviewer")]
         bool ICredentials.CanAdmin()
         {
             return true;
@@ -58,8 +92,8 @@ namespace Annotation
 
         ConnectomeDataModel.ConnectomeEntities GetOrCreateDatabaseContext()
         {
-            return new ConnectomeEntities(); 
-
+            return new ConnectomeEntities();
+            /*
             if (_db != null)
             {
                 switch (_db.Database.Connection.State)
@@ -95,16 +129,14 @@ namespace Annotation
                 _db = new ConnectomeEntities();
             } 
 
-            return _db;
+            return _db;*/
         }
-
-        ConnectomeDataModel.ConnectomeEntities _db;
-
+        
         public ConnectomeDataModel.ConnectomeEntities GetOrCreateReadOnlyContext()
         {
             ConnectomeEntities db = GetOrCreateDatabaseContext();
             ConfigureContextAsReadOnly(db);
-            return db; 
+            return db;
         }
 
         public ConnectomeDataModel.ConnectomeEntities GetOrCreateReadOnlyContextWithLazyLoading()
@@ -120,10 +152,30 @@ namespace Annotation
             return VikingWebAppSettings.AppSettings.GetDefaultConnectionString();
         }
 
+        #region IVolumeMeta Members
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public Scale GetScale()
+        {
+            using (ConnectomeEntities db = GetOrCreateDatabaseContext())
+            {
+                AxisUnits X = new AnnotationService.Types.AxisUnits(db.GetXYScale(), db.GetXYUnits());
+                AxisUnits Y = new AnnotationService.Types.AxisUnits(X.Value, X.Units);
+                AxisUnits Z = new AnnotationService.Types.AxisUnits(db.GetZScale(), db.GetZUnits());
+
+                Scale scale = new AnnotationService.Types.Scale(X, Y, Z);
+
+                return scale;
+            }
+        }
+
+        #endregion
+
+
         #region IAnnotateStructureTypes Members
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public StructureType CreateStructureType(Annotation.StructureType new_structureType)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public AnnotationService.Types.StructureType CreateStructureType(AnnotationService.Types.StructureType new_structureType)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
             {
@@ -136,19 +188,19 @@ namespace Annotation
                 db.SaveChanges();
                 Console.Out.Flush();
 
-                StructureType output_obj = new StructureType(db_obj);
+                AnnotationService.Types.StructureType output_obj = db_obj.Create();
                 return output_obj;
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public StructureType[] GetStructureTypes()
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.StructureType[] GetStructureTypes()
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
                 IQueryable<ConnectomeDataModel.StructureType> queryResults = from t in db.StructureTypes select t;
-                return queryResults.ToArray().Select(st => new StructureType(st)).ToArray();
-            } 
+                return queryResults.ToArray().Select(st => st.Create()).ToArray();
+            }
         }
 
         /*
@@ -174,8 +226,8 @@ namespace Annotation
         }
          */
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public StructureType GetStructureTypeByID(long ID)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.StructureType GetStructureTypeByID(long ID)
         {
             using (var db = GetOrCreateReadOnlyContext())
             {
@@ -185,7 +237,7 @@ namespace Annotation
                     if (type == null)
                         return null;
 
-                    StructureType newType = new StructureType(type);
+                    AnnotationService.Types.StructureType newType = type.Create();
                     return newType;
                 }
                 catch (System.ArgumentNullException)
@@ -203,15 +255,15 @@ namespace Annotation
             return null;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Structure[] GetStructuresForType(long TypeID)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructuresForType(long TypeID)
         {
             return GetStructuresOfType(TypeID);
         }
 
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Structure[] GetStructuresOfType(long TypeID)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructuresOfType(long TypeID)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
@@ -222,25 +274,25 @@ namespace Annotation
                                                                            select s;
 
                     if (structObjs == null)
-                        return new Structure[0];
+                        return new AnnotationService.Types.Structure[0];
 
                     var structObjList = structObjs.ToList<ConnectomeDataModel.Structure>();
 
-                    return structObjs.ToList().Select(s => new Structure(s, false)).ToArray();
+                    return structObjs.ToList().Select(s => s.Create(false)).ToArray();
                 }
                 catch (Exception)
                 {
-                    return new Structure[0];
+                    return new AnnotationService.Types.Structure[0];
                 }
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public StructureType[] GetStructureTypesByIDs(long[] IDs)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.StructureType[] GetStructureTypesByIDs(long[] IDs)
         {
 
             List<long> ListIDs = new List<long>(IDs);
-            
+
             //LINQ creates a SQL query with parameters when using contains, and there is a 2100 parameter limit.  So we cut the query into smaller chunks and run 
             //multiple queries
             ListIDs.Sort();  //Sort the list to slightly optimize the query
@@ -275,7 +327,7 @@ namespace Annotation
                         if (structTypeObjs == null)
                             return null;
 
-                        return structTypeObjs.ToList().Select(stype => new StructureType(stype)).ToArray();
+                        return structTypeObjs.ToList().Select(stype => stype.Create()).ToArray();
                     }
                     catch (System.ArgumentNullException)
                     {
@@ -286,15 +338,15 @@ namespace Annotation
                     {
                         //This means there was no row with that ID; 
                         Debug.WriteLine("Could not find requested structure type IDs: " + IDs.ToString());
-                    } 
+                    }
                 }
             }
 
-            return new StructureType[0];
+            return new AnnotationService.Types.StructureType[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public long[] UpdateStructureTypes(StructureType[] structTypes)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public long[] UpdateStructureTypes(AnnotationService.Types.StructureType[] structTypes)
         {
             return Update(structTypes);
         }
@@ -304,7 +356,7 @@ namespace Annotation
         /// </summary>
         protected void DemandAdminPermissions()
         {
-            PrincipalPermission permission = new PrincipalPermission(null, "Admin");
+            PrincipalPermission permission = new PrincipalPermission(null, "Reviewer");
 
             permission.Demand();
         }
@@ -321,14 +373,15 @@ namespace Annotation
 
         protected void DemandAdminOrUser(string username)
         {
-            try{
+            try
+            {
                 DemandAdminPermissions();
             }
-            catch(SecurityException)
+            catch (SecurityException)
             {
                 DemandUser(username);
             }
-            
+
         }
 
         /// <summary>
@@ -336,25 +389,25 @@ namespace Annotation
         /// </summary>
         /// <param name="structTypes"></param>
         /// <returns>Returns ID's of each object in the order they were passed. Used to recover ID's of inserted rows</returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public long[] Update(StructureType[] structTypes)
-        { 
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public long[] Update(AnnotationService.Types.StructureType[] structTypes)
+        {
             Dictionary<ConnectomeDataModel.StructureType, int> mapNewTypeToIndex = new Dictionary<ConnectomeDataModel.StructureType, int>(structTypes.Length);
             //Stores the ID of each object manipulated for the return value
             long[] listID = new long[structTypes.Length];
 
             using (var db = GetOrCreateDatabaseContext())
-            { 
+            {
                 try
                 {
 
                     for (int iObj = 0; iObj < structTypes.Length; iObj++)
                     {
-                        StructureType t = structTypes[iObj];
+                        AnnotationService.Types.StructureType t = structTypes[iObj];
 
                         switch (t.DBAction)
                         {
-                            case DBACTION.INSERT: 
+                            case DBACTION.INSERT:
                                 ConnectomeDataModel.StructureType newType = new ConnectomeDataModel.StructureType();
                                 t.Sync(newType);
                                 db.StructureTypes.Add(newType);
@@ -429,7 +482,7 @@ namespace Annotation
             return listID;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public string TestMethod()
         {
             return "Test OK";
@@ -443,17 +496,17 @@ namespace Annotation
         /// 
         /// </summary>
         /// <returns></returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Structure[] GetStructures()
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructures()
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
                 try
                 {
                     //IQueryable<ConnectomeDataModel.Structure> queryStructures = from s in db.ConnectomeDataModel.Structures select s;
-                    List<ConnectomeDataModel.Structure> listStructs = db.Structures.ToList();
+                    List<ConnectomeDataModel.Structure> listStructs = db.Structures.AsNoTracking().ToList();
 
-                    Structure[] retList = new Structure[listStructs.Count()];
+                    AnnotationService.Types.Structure[] retList = new AnnotationService.Types.Structure[listStructs.Count()];
 
                     for (int iStruct = 0; iStruct < listStructs.Count(); iStruct++)
                     {
@@ -461,7 +514,7 @@ namespace Annotation
                         //if you have all the structures you can create the
                         //graph yourself by looking at ParentIDs without 
                         //sending duplicate information over the wire
-                        retList[iStruct] = new Structure(listStructs[iStruct], false);
+                        retList[iStruct] = listStructs[iStruct].Create(false);
                     }
 
                     return retList;
@@ -472,48 +525,12 @@ namespace Annotation
                 }
             }
 
-            return new Structure[0];
+            return new AnnotationService.Types.Structure[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Annotation.Structure[] GetStructuresForSection(long SectionNumber, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructuresForSection(long SectionNumber, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
         {
-            DeletedIDs = new long[0];
-
-            QueryExecutedTime = DateTime.Now.ToUniversalTime().Ticks;
-
-            using (var db = GetOrCreateReadOnlyContext())
-            {
-                db.Configuration.LazyLoadingEnabled = false;
-                db.Configuration.AutoDetectChangesEnabled = false;
-
-                try
-                { 
-                    DateTime? ModifiedAfter = new DateTime?();
-                    if (ModifiedAfterThisUtcTime > 0)
-                        ModifiedAfter = new DateTime?(new DateTime(ModifiedAfterThisUtcTime, DateTimeKind.Unspecified));
-
-                    ModifiedAfter = ConnectomeDataModel.ConnectomeEntities.ValidateDate(ModifiedAfter);
-                    
-                    Annotation.Structure[] retList = db.ReadSectionStructuresAndLinks(SectionNumber, ModifiedAfter).Select(s => new Annotation.Structure(s, false)).ToArray();
-
-                    return retList;
-                }
-                catch (Exception e)
-                {
-                    Debug.WriteLine(e.ToString());
-                }
-            }
-              
-            return new Structure[0];
-        }
-
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Annotation.Structure[] GetStructuresForSectionInMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
-        {
-            DateTime start = DateTime.UtcNow;
-            TimeSpan elapsed;
-
             DeletedIDs = new long[0];
 
             QueryExecutedTime = DateTime.Now.ToUniversalTime().Ticks;
@@ -531,15 +548,7 @@ namespace Annotation
 
                     ModifiedAfter = ConnectomeDataModel.ConnectomeEntities.ValidateDate(ModifiedAfter);
 
-                    //Annotation.Structure[] retList = db.BoundedSectionStructures(bbox.ToGeometry(), (double)section).ToList().Select(s => new Annotation.Structure(s, false)).ToArray();
-
-                    Annotation.Structure[] retList = db.ReadSectionStructuresAndLinksInMosaicRegion(section, bbox.ToGeometry(), MinRadius, ModifiedAfter).Select(s => new Annotation.Structure(s, false)).ToArray();
-
-                    elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
-                    Debug.WriteLine(section.ToString() + ": Query Structures: " + elapsed.TotalMilliseconds);
-
-
-                    //Annotation.Structure[] retList = db.ReadSectionStructuresAndLinks(SectionNumber, ModifiedAfter).Select(s => new Annotation.Structure(s, false)).ToArray();
+                    AnnotationService.Types.Structure[] retList = db.ReadSectionStructuresAndLinks(SectionNumber, ModifiedAfter).Select(s => s.Create(false)).ToArray();
 
                     return retList;
                 }
@@ -549,11 +558,11 @@ namespace Annotation
                 }
             }
 
-            return new Structure[0];
+            return new AnnotationService.Types.Structure[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Annotation.Structure[] GetStructuresForSectionInVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructuresForSectionInMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
         {
             DateTime start = DateTime.UtcNow;
             TimeSpan elapsed;
@@ -577,7 +586,7 @@ namespace Annotation
 
                     //Annotation.Structure[] retList = db.BoundedSectionStructures(bbox.ToGeometry(), (double)section).ToList().Select(s => new Annotation.Structure(s, false)).ToArray();
 
-                    Annotation.Structure[] retList = db.ReadSectionStructuresAndLinksInVolumeRegion(section, bbox.ToGeometry(), MinRadius, ModifiedAfter).Select(s => new Annotation.Structure(s, false)).ToArray();
+                    AnnotationService.Types.Structure[] retList = db.ReadSectionStructuresAndLinksInMosaicRegion(section, bbox.ToGeometry(), MinRadius, ModifiedAfter).Select(s => s.Create(false)).ToArray();
 
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Query Structures: " + elapsed.TotalMilliseconds);
@@ -593,11 +602,55 @@ namespace Annotation
                 }
             }
 
-            return new Structure[0];
+            return new AnnotationService.Types.Structure[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Structure GetStructureByID(long ID, bool IncludeChildren)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructuresForSectionInVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
+        {
+            DateTime start = DateTime.UtcNow;
+            TimeSpan elapsed;
+
+            DeletedIDs = new long[0];
+
+            QueryExecutedTime = DateTime.Now.ToUniversalTime().Ticks;
+
+            using (var db = GetOrCreateReadOnlyContext())
+            {
+                db.Configuration.LazyLoadingEnabled = false;
+                db.Configuration.AutoDetectChangesEnabled = false;
+
+                try
+                {
+                    DateTime? ModifiedAfter = new DateTime?();
+                    if (ModifiedAfterThisUtcTime > 0)
+                        ModifiedAfter = new DateTime?(new DateTime(ModifiedAfterThisUtcTime, DateTimeKind.Unspecified));
+
+                    ModifiedAfter = ConnectomeDataModel.ConnectomeEntities.ValidateDate(ModifiedAfter);
+
+                    //Annotation.Structure[] retList = db.BoundedSectionStructures(bbox.ToGeometry(), (double)section).ToList().Select(s => new Annotation.Structure(s, false)).ToArray();
+
+                    AnnotationService.Types.Structure[] retList = db.ReadSectionStructuresAndLinksInVolumeRegion(section, bbox.ToGeometry(), MinRadius, ModifiedAfter).Select(s => s.Create(false)).ToArray();
+
+                    elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
+                    Debug.WriteLine(section.ToString() + ": Query Structures: " + elapsed.TotalMilliseconds);
+
+
+                    //Annotation.Structure[] retList = db.ReadSectionStructuresAndLinks(SectionNumber, ModifiedAfter).Select(s => new Annotation.Structure(s, false)).ToArray();
+
+                    return retList;
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine(e.ToString());
+                }
+            }
+
+            return new AnnotationService.Types.Structure[0];
+        }
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure GetStructureByID(long ID, bool IncludeChildren)
         {
             using (var db = GetOrCreateReadOnlyContextWithLazyLoading())
             {
@@ -607,17 +660,17 @@ namespace Annotation
                     if (structObj == null)
                         return null;
 
-                    Structure newStruct = new Structure(structObj, IncludeChildren);
+                    AnnotationService.Types.Structure newStruct = structObj.Create(IncludeChildren);
 
                     if (IncludeChildren)
                     {
-                        var childStructures = (from s in db.Structures
-                                                 where s.ParentID == structObj.ID
-                                                 select s.ID);
+                        var childStructures = (from s in db.Structures.AsNoTracking()
+                                               where s.ParentID == structObj.ID
+                                               select s.ID);
 
                         newStruct.ChildIDs = childStructures.ToArray();
                     }
-                    
+
                     return newStruct;
                 }
                 catch (System.ArgumentNullException)
@@ -636,12 +689,12 @@ namespace Annotation
         }
 
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Structure[] GetStructuresByIDs(long[] IDs, bool IncludeChildren)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructuresByIDs(long[] IDs, bool IncludeChildren)
         {
 
             List<long> ListIDs = new List<long>(IDs);
-            List<Structure> ListStructures = new List<Structure>(IDs.Length);
+            List<AnnotationService.Types.Structure> ListStructures = new List<AnnotationService.Types.Structure>(IDs.Length);
 
             //LINQ creates a SQL query with parameters when using contains, and there is a 2100 parameter limit.  So we cut the query into smaller chunks and run 
             //multiple queries
@@ -666,16 +719,16 @@ namespace Annotation
                     long maxIDValue = ShorterIDArray[ShorterIDArray.Length - 1];
 
                     List<long> ShorterListIDs = new List<long>(ShorterIDArray);
- 
+
                     try
                     {
-                        IQueryable<ConnectomeDataModel.Structure> structObjs = from s in db.Structures
-                                                                                            where s.ID >= minIDValue &&
-                                                                                                  s.ID <= maxIDValue &&
-                                                                                                  ShorterListIDs.Contains(s.ID)
-                                                                                            select s;
+                        IQueryable<ConnectomeDataModel.Structure> structObjs = from s in db.Structures.AsNoTracking()
+                                                                               where s.ID >= minIDValue &&
+                                                                                     s.ID <= maxIDValue &&
+                                                                                     ShorterListIDs.Contains(s.ID)
+                                                                               select s;
 
-                        IQueryable<ConnectomeDataModel.StructureLink> structLinks = from sl in db.StructureLinks
+                        IQueryable<ConnectomeDataModel.StructureLink> structLinks = from sl in db.StructureLinks.AsNoTracking()
                                                                                     where ShorterListIDs.Contains(sl.SourceID) ||
                                                                                           ShorterListIDs.Contains(sl.TargetID)
                                                                                     select sl;
@@ -683,11 +736,11 @@ namespace Annotation
                         Dictionary<long, ConnectomeDataModel.Structure> dictStructures = structObjs.ToDictionary(s => s.ID);
                         db.AppendLinksToStructures(dictStructures, structLinks.ToList());
 
-                        Dictionary<long, Structure> selected_structures = structObjs.ToList().Select(s => new Structure(s, false)).ToDictionary(s => s.ID);
+                        Dictionary<long, AnnotationService.Types.Structure> selected_structures = structObjs.ToList().Select(s => s.Create(false)).ToDictionary(s => s.ID);
 
                         if (IncludeChildren)
                         {
-                            var childStructGroups = (from s in db.Structures
+                            var childStructGroups = (from s in db.Structures.AsNoTracking()
                                                      where s.ParentID.HasValue && ShorterListIDs.Contains(s.ParentID.Value)
                                                      group s.ID by s.ParentID.Value into ParentIDGroup
                                                      select ParentIDGroup);
@@ -697,13 +750,13 @@ namespace Annotation
                                 if (selected_structures.ContainsKey(ParentStructure.Key))
                                 {
                                     selected_structures[ParentStructure.Key].ChildIDs = ParentStructure.ToArray();
-                                } 
-                            } 
+                                }
+                            }
                         }
 
                         if (structObjs == null)
-                            return new Structure[0];
-                        
+                            return new AnnotationService.Types.Structure[0];
+
                         ListStructures.AddRange(selected_structures.Values);
                     }
                     catch (System.ArgumentNullException)
@@ -728,7 +781,7 @@ namespace Annotation
             return ListStructures.ToArray();
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public void ApproximateStructureLocation(long ID)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
@@ -737,8 +790,107 @@ namespace Annotation
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public StructureLink CreateStructureLink(StructureLink link)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reviewer")]
+        public AnnotationService.Types.PermittedStructureLink CreatePermittedStructureLink(AnnotationService.Types.PermittedStructureLink link)
+        {
+            ConnectomeDataModel.PermittedStructureLink newRow = new ConnectomeDataModel.PermittedStructureLink();
+            link.Sync(newRow);
+            using (ConnectomeEntities db = GetOrCreateDatabaseContext())
+            {
+                db.PermittedStructureLink.Add(newRow);
+                db.SaveChanges();
+            }
+
+            AnnotationService.Types.PermittedStructureLink newLink = newRow.Create();
+            return newLink;
+        }
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reviewer")]
+        public void UpdatePermittedStructureLinks(AnnotationService.Types.PermittedStructureLink[] links)
+        {
+            //Stores the ID of each object manipulated for the return value
+            using (ConnectomeEntities db = GetOrCreateDatabaseContext())
+            {
+                try
+                {
+                    for (int iObj = 0; iObj < links.Length; iObj++)
+                    {
+                        AnnotationService.Types.PermittedStructureLink obj = links[iObj];
+                        ConnectomeDataModel.PermittedStructureLink DBObj = null;
+
+                        switch (obj.DBAction)
+                        {
+                            case DBACTION.INSERT:
+
+                                DBObj = new ConnectomeDataModel.PermittedStructureLink();
+                                obj.Sync(DBObj);
+                                db.PermittedStructureLink.Add(DBObj);
+                                break;
+                            case DBACTION.UPDATE:
+
+                                try
+                                {
+                                    DBObj = (from u in db.PermittedStructureLink
+                                             where u.SourceTypeID == obj.SourceTypeID &&
+                                                   u.TargetTypeID == obj.TargetTypeID
+                                             select u).Single();
+                                }
+                                catch (System.ArgumentNullException)
+                                {
+                                    Debug.WriteLine("Could not find structuretype to update: " + obj.ToString());
+                                    break;
+                                }
+                                catch (System.InvalidOperationException)
+                                {
+                                    Debug.WriteLine("Could not find structuretype to update: " + obj.ToString());
+                                    break;
+                                }
+
+                                obj.Sync(DBObj);
+                                //  db.ConnectomeDataModel.StructureTypes.(updateType);
+                                break;
+                            case DBACTION.DELETE:
+                                try
+                                {
+                                    DBObj = (from u in db.PermittedStructureLink
+                                             where u.SourceTypeID == obj.SourceTypeID &&
+                                                   u.TargetTypeID == obj.TargetTypeID
+                                             select u).Single();
+                                }
+                                catch (System.ArgumentNullException)
+                                {
+                                    Debug.WriteLine("Could not find structuretype to delete: " + obj.ToString());
+                                    break;
+                                }
+                                catch (System.InvalidOperationException)
+                                {
+                                    Debug.WriteLine("Could not find structuretype to update: " + obj.ToString());
+                                    break;
+                                }
+
+                                db.PermittedStructureLink.Remove(DBObj);
+
+                                break;
+                        }
+
+                        db.SaveChanges();
+                    }
+
+
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine(e.ToString());
+                    throw e;
+                }
+            }
+
+            //Recover the ID's for new objects
+            return;
+        }
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public AnnotationService.Types.StructureLink CreateStructureLink(AnnotationService.Types.StructureLink link)
         {
             ConnectomeDataModel.StructureLink newRow = new ConnectomeDataModel.StructureLink();
             link.Sync(newRow);
@@ -748,12 +900,12 @@ namespace Annotation
                 db.SaveChanges();
             }
 
-            StructureLink newLink = new StructureLink(newRow);
-            return newLink; 
+            AnnotationService.Types.StructureLink newLink = newRow.Create();
+            return newLink;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public void UpdateStructureLinks(StructureLink[] links)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public void UpdateStructureLinks(AnnotationService.Types.StructureLink[] links)
         {
             //Stores the ID of each object manipulated for the return value
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
@@ -762,7 +914,7 @@ namespace Annotation
                 {
                     for (int iObj = 0; iObj < links.Length; iObj++)
                     {
-                        StructureLink obj = links[iObj];
+                        AnnotationService.Types.StructureLink obj = links[iObj];
                         ConnectomeDataModel.StructureLink DBObj = null;
 
                         switch (obj.DBAction)
@@ -836,7 +988,7 @@ namespace Annotation
             return;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public long[] GetUnfinishedLocations(long structureID)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
@@ -845,27 +997,27 @@ namespace Annotation
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public LocationPositionOnly[] GetUnfinishedLocationsWithPosition(long structureID)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
-                return db.SelectUnfinishedStructureBranchesWithPosition(structureID).ToList().Select(row => new LocationPositionOnly(row)).ToArray();
+                return db.SelectUnfinishedStructureBranchesWithPosition(structureID).ToList().Select(row => row.Create()).ToArray();
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public StructureLink[] GetLinkedStructures()
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.StructureLink[] GetLinkedStructures()
         {
             using (var db = GetOrCreateDatabaseContext())
             {
                 try
                 {
-                    IQueryable<ConnectomeDataModel.StructureLink> queryResults = from l in db.StructureLinks select l;
-                    List<StructureLink> retList = new List<StructureLink>(queryResults.Count());
+                    IQueryable<ConnectomeDataModel.StructureLink> queryResults = from l in db.StructureLinks.AsNoTracking() select l;
+                    List<AnnotationService.Types.StructureLink> retList = new List<AnnotationService.Types.StructureLink>(queryResults.Count());
                     foreach (ConnectomeDataModel.StructureLink dbl in queryResults)
                     {
-                        StructureLink link = new StructureLink(dbl);
+                        AnnotationService.Types.StructureLink link = dbl.Create();
                         retList.Add(link);
                     }
                     return retList.ToArray();
@@ -881,21 +1033,21 @@ namespace Annotation
                     Debug.WriteLine("Could not find StructureLinks");
                 }
             }
-            return new StructureLink[0];
+            return new AnnotationService.Types.StructureLink[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public StructureLink[] GetLinkedStructuresByID(long ID)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.StructureLink[] GetLinkedStructuresByID(long ID)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
             {
                 try
                 {
-                    IQueryable<ConnectomeDataModel.StructureLink> queryResults = from l in db.StructureLinks where (l.SourceID == ID || l.TargetID == ID) select l;
-                    List<StructureLink> retList = new List<StructureLink>(queryResults.Count());
+                    IQueryable<ConnectomeDataModel.StructureLink> queryResults = from l in db.StructureLinks.AsNoTracking() where (l.SourceID == ID || l.TargetID == ID) select l;
+                    List<AnnotationService.Types.StructureLink> retList = new List<AnnotationService.Types.StructureLink>(queryResults.Count());
                     foreach (ConnectomeDataModel.StructureLink dbl in queryResults)
                     {
-                        StructureLink link = new StructureLink(dbl);
+                        AnnotationService.Types.StructureLink link = dbl.Create();
                         retList.Add(link);
                     }
                     return retList.ToArray();
@@ -911,19 +1063,47 @@ namespace Annotation
                     Debug.WriteLine("Could not find StructureLinks for ID: " + ID.ToString());
                 }
 
-                return new StructureLink[0];
+                return new AnnotationService.Types.StructureLink[0];
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationsForStructure(long structureID)
+        public long[] GetNetworkedStructures(long[] IDs, int numHops)
+        {
+            using (var db = GetOrCreateReadOnlyContext())
+            {
+
+                return db.SelectNetworkStructureIDs(IDs, numHops).ToArray();
+            }
+        }
+
+        public AnnotationService.Types.Structure[] GetChildStructuresInNetwork(long[] IDs, int numHops)
+        {
+            using (var db = GetOrCreateReadOnlyContext())
+            {
+                var child_structs = db.SelectNetworkChildStructures(IDs, numHops);
+                return child_structs.ToList().Select(s => s.Create(false)).ToArray();
+            }
+        }
+
+        public AnnotationService.Types.StructureLink[] GetStructureLinksInNetwork(long[] IDs, int numHops)
+        {
+            using (var db = GetOrCreateReadOnlyContext())
+            {
+                var structure_links = db.SelectNetworkStructureLinks(IDs, numHops);
+                return structure_links.ToList().Select(sl => sl.Create()).ToArray();
+            }
+        }
+
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationsForStructure(long structureID)
         {
             using (var db = GetOrCreateReadOnlyContext())
             {
                 try
                 {
                     IList<ConnectomeDataModel.Location> queryResults = db.ReadStructureLocationsAndLinks(structureID);
-                    return queryResults.Select(loc => new Location(loc, true)).ToArray();
+                    return queryResults.Select(loc => loc.Create(true)).ToArray();
                 }
                 catch (System.ArgumentNullException)
                 {
@@ -937,17 +1117,17 @@ namespace Annotation
                 }
             }
 
-            return new Location[0];
+            return new AnnotationService.Types.Location[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public long NumberOfLocationsForStructure(long structureID)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
                 try
                 {
-                    IQueryable<ConnectomeDataModel.Location> queryResults = from l in db.Locations where (l.ParentID == structureID) select l;
+                    IQueryable<ConnectomeDataModel.Location> queryResults = from l in db.Locations.AsNoTracking() where (l.ParentID == structureID) select l;
                     return queryResults.Count();
                 }
                 catch (System.ArgumentNullException)
@@ -965,16 +1145,16 @@ namespace Annotation
             return 0;
         }
 
-        
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public long[] UpdateStructures(Structure[] structures)
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public long[] UpdateStructures(AnnotationService.Types.Structure[] structures)
         {
             return Update(structures);
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public long[] Update(Structure[] structures)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public long[] Update(AnnotationService.Types.Structure[] structures)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
             {
@@ -987,7 +1167,7 @@ namespace Annotation
 
                     for (int iObj = 0; iObj < structures.Length; iObj++)
                     {
-                        Structure t = structures[iObj];
+                        AnnotationService.Types.Structure t = structures[iObj];
 
                         switch (t.DBAction)
                         {
@@ -1072,10 +1252,10 @@ namespace Annotation
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public CreateStructureRetval CreateStructure(Structure structure, Location location)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public CreateStructureRetval CreateStructure(AnnotationService.Types.Structure structure, AnnotationService.Types.Location location)
         {
-            using(var db = GetOrCreateDatabaseContext())
+            using (var db = GetOrCreateDatabaseContext())
             {
 
                 try
@@ -1088,28 +1268,28 @@ namespace Annotation
                     ConnectomeDataModel.Location DBLoc = db.Locations.Create();
                     location.Sync(DBLoc);
                     db.Locations.Add(DBLoc);
-                    DBLoc.Structure = DBStruct;
-                    
+                    DBLoc.Parent = DBStruct;
+
                     db.SaveChanges();
 
                     //Return new ID's to the caller
-                    CreateStructureRetval retval = new CreateStructureRetval(new Structure(DBStruct, false), new Location(DBLoc));
-                    return retval; 
+                    CreateStructureRetval retval = new CreateStructureRetval(DBStruct.Create(false), DBLoc.Create());
+                    return retval;
                 }
                 catch (System.Data.Entity.Validation.DbEntityValidationException e)
                 {
-                    foreach( var error in e.EntityValidationErrors)
+                    foreach (var error in e.EntityValidationErrors)
                     {
                         Console.WriteLine(error);
                     }
-                } 
+                }
             }
 
             return null;
         }
 
         /*
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
         public long[] CreateStructure(Structure structure, Location location)
         {
             ConnectomeDataModel.Structure DBStruct = new ConnectomeDataModel.Structure();
@@ -1136,14 +1316,14 @@ namespace Annotation
         /// <param name="StructureA"></param>
         /// <param name="StructureB"></param>
         /// <returns>ID of new structure</returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Admin")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reviewer")]
         public long Merge(long KeepID, long MergeID)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
             {
                 return db.MergeStructures(KeepID, MergeID);
             }
-            
+
         }
 
         /// <summary>
@@ -1154,14 +1334,38 @@ namespace Annotation
         /// <param name="StructureA">Structure to split</param>
         /// <param name="locLink">Location Link to split structure at</param>
         /// <returns>ID of new structure</returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Admin")]
-        public long Split(long StructureA, LocationLink locLink)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reviewer")]
+        public long Split(long KeepStructureID, long LocationIDInSplitStructure)
         {
-            return 0;
+            using (ConnectomeEntities db = GetOrCreateDatabaseContext())
+            {
+                long NewStructureID;
+                int retval = db.SplitStructure(KeepStructureID, LocationIDInSplitStructure,  out NewStructureID);
+                return NewStructureID;
+            }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public StructureHistory[] GetStructureChangeLog(long? structure_id, DateTime? begin_time, DateTime? end_time)
+        /// <summary>
+        /// Split the specified structure into two new structures at the specified link
+        /// return an exception if the structure has a cycle in the graph.
+        /// Child objects are assigned to the nearest location on the same section
+        /// </summary>
+        /// <param name="StructureA">Structure to split</param>
+        /// <param name="locLink">Location Link to split structure at</param>
+        /// <returns>ID of new structure</returns>
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reviewer")]
+        public long SplitAtLocationLink(long LocationIDOfKeepStructure, long LocationIDOfSplitStructure)
+        {
+            using (ConnectomeEntities db = GetOrCreateDatabaseContext())
+            {
+                long NewStructureID;
+                int retval = db.SplitStructureAtLocationLink(LocationIDOfKeepStructure, LocationIDOfSplitStructure, out NewStructureID);
+                return NewStructureID;
+            }
+        }
+        
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Structure[] GetStructureChangeLog(long? structure_id, DateTime? begin_time, DateTime? end_time)
         {
             /*
             SelectStructureChangeLog_Result result = db.SelectStructureChangeLog(structure_id, begin_time, end_time);
@@ -1174,7 +1378,7 @@ namespace Annotation
 
             return structures.ToArray();
              */
-            return new StructureHistory[0];
+            return new AnnotationService.Types.Structure[0];
         }
 
 
@@ -1183,8 +1387,8 @@ namespace Annotation
 
         #region IAnnotateLocations Members
 
-        [PrincipalPermission(SecurityAction.Demand, Role="Read")]
-        public Location GetLocationByID(long ID)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location GetLocationByID(long ID)
         {
             try
             {
@@ -1193,7 +1397,7 @@ namespace Annotation
                     ConnectomeDataModel.Location obj = db.Locations.Find(ID);
                     if (obj == null)
                         return null;
-                    Location retLoc = new Location(obj);
+                    AnnotationService.Types.Location retLoc = obj.Create();
                     return retLoc;
                 }
             }
@@ -1211,98 +1415,122 @@ namespace Annotation
             return null;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationsByID(long[] IDs)
+        /// <summary>
+        /// Fetch database objects for the IDs in bulk
+        /// </summary>
+        /// <param name="db"></param>
+        /// <param name="IDs"></param>
+        /// <returns></returns>
+        private List<ConnectomeDataModel.Location> _GetLocationsByID(ConnectomeEntities db, long[] IDs, bool IncludeLinks)
         {
             List<long> ListIDs = new List<long>(IDs);
-            List<Location> ListLocations = new List<Location>(IDs.Length);
-
-            //LINQ creates a SQL query with parameters when using contains, and there is a 2100 parameter limit.  So we cut the query into smaller chunks and run 
-            //multiple queries
             ListIDs.Sort();  //Sort the list to slightly optimize the query
 
-            int QueryChunkSize = 2000;
+            const int QueryChunkSize = 2000;
+            List<ConnectomeDataModel.Location> ListLocations = new List<ConnectomeDataModel.Location>(IDs.Length);
 
-            using (var db = GetOrCreateReadOnlyContext())
+            while (ListIDs.Count > 0)
             {
+                int NumIDs = ListIDs.Count < QueryChunkSize ? ListIDs.Count : QueryChunkSize;
 
-                while (ListIDs.Count > 0)
+                long[] ShorterIDArray = new long[NumIDs];
+
+                ListIDs.CopyTo(0, ShorterIDArray, 0, NumIDs);
+                ListIDs.RemoveRange(0, NumIDs);
+
+                //I do this hoping that it will allow SQL to not check the entire table for each chunk
+                long minIDValue = ShorterIDArray[0];
+                long maxIDValue = ShorterIDArray[ShorterIDArray.Length - 1];
+
+                List<long> ShorterListIDs = new List<long>(ShorterIDArray);
+
+                try
                 {
-                    int NumIDs = ListIDs.Count < QueryChunkSize ? ListIDs.Count : QueryChunkSize;
-
-                    long[] ShorterIDArray = new long[NumIDs];
-
-                    ListIDs.CopyTo(0, ShorterIDArray, 0, NumIDs);
-                    ListIDs.RemoveRange(0, NumIDs);
-
-                    //I do this hoping that it will allow SQL to not check the entire table for each chunk
-                    long minIDValue = ShorterIDArray[0];
-                    long maxIDValue = ShorterIDArray[ShorterIDArray.Length - 1];
-
-                    List<long> ShorterListIDs = new List<long>(ShorterIDArray);
-
-                    try
+                    IQueryable<ConnectomeDataModel.Location> locObjs;
+                    if (IncludeLinks)
                     {
-                        IQueryable<ConnectomeDataModel.Location> locObjs = from s in db.Locations
-                                                                            where s.ID >= minIDValue &&
-                                                                                    s.ID <= maxIDValue &&
-                                                                                    ShorterListIDs.Contains(s.ID)
-                                                                            select s;
-                        if (locObjs == null)
-                            return null;
+                        locObjs = from s in db.Locations.Include("LocationLinksA").Include("LocationLinksB")
+                                                                           where s.ID >= minIDValue &&
+                                                                                   s.ID <= maxIDValue &&
+                                                                                   ShorterListIDs.Contains(s.ID)
+                                                                           select s;
+                    }
+                    else
+                    {
+                        locObjs = from s in db.Locations
+                                  where s.ID >= minIDValue &&
+                                          s.ID <= maxIDValue &&
+                                          ShorterListIDs.Contains(s.ID)
+                                  select s;
+                    }
 
-                        ListLocations.AddRange(locObjs.ToList().Select(loc => new Location(loc))); 
-                    }
-                    catch (System.ArgumentNullException)
-                    {
-                        //This means there was no row with that ID; 
-                        Debug.WriteLine("Could not find requested location IDs: " + IDs.ToString());
-                    }
-                    catch (System.InvalidOperationException)
-                    {
-                        //This means there was no row with that ID; 
-                        Debug.WriteLine("Could not find requested location IDs: " + IDs.ToString());
-                    }
+
+                    if (locObjs == null)
+                        return null;
+
+                    ListLocations.AddRange(locObjs); 
+                }
+                catch (System.ArgumentNullException)
+                {
+                    //This means there was no row with that ID; 
+                    Debug.WriteLine("Could not find requested location IDs: " + IDs.ToString());
+                }
+                catch (System.InvalidOperationException)
+                {
+                    //This means there was no row with that ID; 
+                    Debug.WriteLine("Could not find requested location IDs: " + IDs.ToString());
                 }
             }
 
-            return ListLocations.ToArray(); 
-
+            return ListLocations;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location GetLastModifiedLocation()
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationsByID(long[] IDs)
+        {
+            List<ConnectomeDataModel.Location> listObjs;
+
+            using (var db = GetOrCreateReadOnlyContext())
+            {
+                listObjs = _GetLocationsByID(db, IDs, true);
+            }
+
+            return listObjs.Select(obj => obj.Create(true)).ToArray();
+        }
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location GetLastModifiedLocation()
         {
             using (var db = GetOrCreateReadOnlyContext())
             {
                 try
                 {
                     string callingUser = ServiceModelUtil.GetUserForCall().Trim();
-                    var LocationsByUser = db.SelectLastModifiedLocationByUsers(mergeOption:System.Data.Entity.Core.Objects.MergeOption.NoTracking);
+                    var LocationsByUser = db.SelectLastModifiedLocationByUsers(mergeOption: System.Data.Entity.Core.Objects.MergeOption.NoTracking);
                     ConnectomeDataModel.Location lastLocation = (from l in LocationsByUser where l.Username.Trim() == callingUser select l).FirstOrDefault<ConnectomeDataModel.Location>();
-                    return new Location(lastLocation);
+                    return lastLocation.Create();
                 }
                 catch (Exception)
                 {
                     return null;
-                } 
+                }
             }
         }
-        
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationsForSection(long section, out long QueryExecutedTime)
+
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationsForSection(long section, out long QueryExecutedTime)
         {
             QueryExecutedTime = DateTime.Now.ToUniversalTime().Ticks;
-            
+
             using (var db = GetOrCreateReadOnlyContext())
             {
                 DateTime start = DateTime.UtcNow;
 
                 db.Database.CommandTimeout = 30;
-                
+
                 try
                 {
-                    TimeSpan elapsed; 
+                    TimeSpan elapsed;
 
                     /*
                     var dbLocLinks = db.ReadSectionLocationLinks(section, new DateTime?());
@@ -1313,15 +1541,15 @@ namespace Annotation
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Query Locations: " + elapsed.TotalMilliseconds);
 
-                    var Locations = dbLocs.Select(l => new Location(l, true));
+                    var Locations = dbLocs.Select(l => l.Create(true));
 
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Convert to Objects: " + elapsed.TotalMilliseconds);
 
                     //Dictionary<long, Location> dictLocations = Locations.ToDictionary(l => l.ID);
-                    //Location.PopulateLinks(dictLocations, dbLocLinks.ToList());
+                    //AnnotationService.Types.Location.PopulateLinks(dictLocations, dbLocLinks.ToList());
 
-                    //Location[] retList = dictLocations.Values.ToArray();
+                    //AnnotationService.Types.Location[] retList = dictLocations.Values.ToArray();
                     //elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     //Debug.WriteLine(section.ToString() + ": Add Links: " + elapsed.TotalMilliseconds);
                     return Locations.ToArray();
@@ -1338,27 +1566,27 @@ namespace Annotation
                 }
             }
 
-            return new Location[0];
-             
+            return new AnnotationService.Types.Location[0];
+
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationsForSectionMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, out long QueryExecutedTime)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationsForSectionMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, out long QueryExecutedTime)
         {
             QueryExecutedTime = DateTime.Now.ToUniversalTime().Ticks;
 
             using (var db = GetOrCreateReadOnlyContext())
             {
                 DateTime start = DateTime.Now;
-                 
+
 
                 try
-                { 
-                    IList<ConnectomeDataModel.Location> locations = db.ReadSectionLocationsAndLinksInMosaicRegion(section, bbox.ToGeometry(), MinRadius, new DateTime ?());
-                    
+                {
+                    IList<ConnectomeDataModel.Location> locations = db.ReadSectionLocationsAndLinksInMosaicRegion(section, bbox.ToGeometry(), MinRadius, new DateTime?());
+
                     Debug.WriteLine(section.ToString() + ": Query: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
-                    Location[] retList = locations.Select(l => new Location(l, true)).ToArray();
+                    AnnotationService.Types.Location[] retList = locations.Select(l => l.Create(true)).ToArray();
 
                     Debug.WriteLine(section.ToString() + ": To list: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
@@ -1376,11 +1604,11 @@ namespace Annotation
                 }
             }
 
-            return new Location[0]; 
+            return new AnnotationService.Types.Location[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationsForSectionVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, out long QueryExecutedTime)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationsForSectionVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, out long QueryExecutedTime)
         {
             QueryExecutedTime = DateTime.Now.ToUniversalTime().Ticks;
 
@@ -1395,7 +1623,7 @@ namespace Annotation
 
                     Debug.WriteLine(section.ToString() + ": Query: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
-                    Location[] retList = locations.Select(l => new Location(l, true)).ToArray();
+                    AnnotationService.Types.Location[] retList = locations.Select(l => l.Create(true)).ToArray();
 
                     Debug.WriteLine(section.ToString() + ": To list: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
@@ -1413,7 +1641,7 @@ namespace Annotation
                 }
             }
 
-            return new Location[0];
+            return new AnnotationService.Types.Location[0];
         }
 
         /// <summary>
@@ -1425,8 +1653,8 @@ namespace Annotation
         /// <param name="time">UTC Datetime object passed using "ticks"</param>
         /// <param name="?"></param>
         /// <returns></returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationChangesInMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, long? ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationChangesInMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, long? ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
         {
             using (var db = GetOrCreateReadOnlyContext())
             {
@@ -1435,14 +1663,14 @@ namespace Annotation
 
                 DateTime? ModifiedAfterThisTime = new DateTime?();
 
-                if(ModifiedAfterThisUtcTime.HasValue)
+                if (ModifiedAfterThisUtcTime.HasValue)
                     ModifiedAfterThisTime = new DateTime?(new DateTime(ModifiedAfterThisUtcTime.Value, DateTimeKind.Utc));
 
                 ModifiedAfterThisTime = ConnectomeDataModel.ConnectomeEntities.ValidateDate(ModifiedAfterThisTime);
 
                 DeletedIDs = new long[0];
 
-                Location[] retList = new Location[0];
+                AnnotationService.Types.Location[] retList = new AnnotationService.Types.Location[0];
 
                 QueryExecutedTime = start.Ticks;
                 //try
@@ -1461,7 +1689,7 @@ namespace Annotation
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Query Locations: " + elapsed.TotalMilliseconds);
 
-                    var Locations = dbLocs.Select(l => new Location(l, true));
+                    var Locations = dbLocs.Select(l => l.Create(true));
 
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Convert to Objects: " + elapsed.TotalMilliseconds);
@@ -1481,9 +1709,14 @@ namespace Annotation
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public AnnotationSet GetAnnotationsInMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, long? ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
         {
+            if (bbox.Width == 0 || bbox.Height == 0)
+            {
+                throw new ArgumentException("Bounding box must have non-zero dimensions");
+            }
+
             using (var db = GetOrCreateReadOnlyContext())
             {
                 DateTime start = DateTime.UtcNow;
@@ -1507,22 +1740,22 @@ namespace Annotation
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Query Section Annotations: " + elapsed.TotalMilliseconds);
 
-                    Task<Structure[]> structConvTask = Task<Structure[]>.Run(() => { return dbAnnotations.Structures.Values.Select(s => new Structure(s, false)).ToArray(); });
-                    Task<Location[]> locConvTask = Task<Location[]>.Run(() => { return dbAnnotations.Locations.Values.Select(l => new Location(l, true)).ToArray(); });
+                    Task<AnnotationService.Types.Structure[]> structConvTask = Task<AnnotationService.Types.Structure[]>.Run(() => { return dbAnnotations.Structures.Values.Select(s => s.Create(false)).ToArray(); });
+                    Task<AnnotationService.Types.Location[]> locConvTask = Task<AnnotationService.Types.Location[]>.Run(() => { return dbAnnotations.Locations.Values.Select(l => l.Create(true)).ToArray(); });
 
                     Task.WaitAll(structConvTask, locConvTask);
 
-                    Structure[] structs = structConvTask.Result;
-                    Location[] locs = locConvTask.Result;
+                    AnnotationService.Types.Structure[] structs = structConvTask.Result;
+                    AnnotationService.Types.Location[] locs = locConvTask.Result;
 
                     results = new AnnotationSet(structs, locs);
 
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Convert to Objects: " + elapsed.TotalMilliseconds);
-                    
+
                     //elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     //Debug.WriteLine(section.ToString() + ": Add Links: " + elapsed.TotalMilliseconds);
-                    
+
                 }
 
                 //TODO: Optimize this function to only return locations from the region we specify.  It currently returns all sections
@@ -1541,8 +1774,8 @@ namespace Annotation
         /// <param name="time">UTC Datetime object passed using "ticks"</param>
         /// <param name="?"></param>
         /// <returns></returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationChangesInVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationChangesInVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
         {
             using (var db = GetOrCreateReadOnlyContext())
             {
@@ -1556,7 +1789,7 @@ namespace Annotation
 
                 DeletedIDs = new long[0];
 
-                Location[] retList = new Location[0];
+                AnnotationService.Types.Location[] retList = new AnnotationService.Types.Location[0];
 
                 QueryExecutedTime = start.Ticks;
                 //try
@@ -1575,7 +1808,7 @@ namespace Annotation
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Query Locations: " + elapsed.TotalMilliseconds);
 
-                    var Locations = dbLocs.Select(l => new Location(l, true));
+                    var Locations = dbLocs.Select(l => l.Create(true));
 
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Convert to Objects: " + elapsed.TotalMilliseconds);
@@ -1604,15 +1837,15 @@ namespace Annotation
         /// <param name="time">UTC Datetime object passed using "ticks"</param>
         /// <param name="?"></param>
         /// <returns></returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public Location[] GetLocationChanges(long section, long ModifiedAfterThisUtcTime,  out long QueryExecutedTime, out long[] DeletedIDs)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.Location[] GetLocationChanges(long section, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out long[] DeletedIDs)
         {
             using (var db = GetOrCreateReadOnlyContext())
             {
                 db.Database.CommandTimeout = 90;
                 db.Configuration.LazyLoadingEnabled = false;
                 db.Configuration.UseDatabaseNullSemantics = true;
-                db.Configuration.AutoDetectChangesEnabled = false; 
+                db.Configuration.AutoDetectChangesEnabled = false;
 
                 DateTime start = DateTime.UtcNow;
                 TimeSpan elapsed;
@@ -1620,11 +1853,11 @@ namespace Annotation
                 DateTime? ModifiedAfterThisTime = new DateTime?();
                 if (ModifiedAfterThisUtcTime > 0)
                     ModifiedAfterThisTime = new DateTime?(new DateTime(ModifiedAfterThisUtcTime, DateTimeKind.Utc));
-                    ModifiedAfterThisTime = ConnectomeDataModel.ConnectomeEntities.ValidateDate(ModifiedAfterThisTime);
+                ModifiedAfterThisTime = ConnectomeDataModel.ConnectomeEntities.ValidateDate(ModifiedAfterThisTime);
 
                 DeletedIDs = new long[0];
 
-                Location[] retList = new Location[0];
+                AnnotationService.Types.Location[] retList = new AnnotationService.Types.Location[0];
 
                 QueryExecutedTime = start.Ticks;
                 //try
@@ -1641,7 +1874,7 @@ namespace Annotation
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Query Locations: " + elapsed.TotalMilliseconds);
 
-                    var Locations = dbLocs.Select(l => new Location(l, true));
+                    var Locations = dbLocs.Select(l => l.Create(true));
 
                     elapsed = new TimeSpan(DateTime.UtcNow.Ticks - start.Ticks);
                     Debug.WriteLine(section.ToString() + ": Convert to Objects: " + elapsed.TotalMilliseconds);
@@ -1681,11 +1914,11 @@ namespace Annotation
         /// </summary>
         /// <param name="DeletedAfterThisTime"></param>
         /// <returns>An array, may be zero length if no locations were deleted</returns>
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public long[] GetDeletedLocations(DateTime? DeletedAfterThisTime)
         {
             //Try to find if any rows were deleted from the passed list of IDs
-            DateTime start = DateTime.UtcNow; 
+            DateTime start = DateTime.UtcNow;
 
             if (!DeletedAfterThisTime.HasValue)
             {
@@ -1695,7 +1928,7 @@ namespace Annotation
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
                 try
-                { 
+                {
                     //// Find all the IDs that still exist
                     //IQueryable<DateTime> queryDebug = from l in db.DBDeletedLocations
                     //                                select l.DeletedOn;
@@ -1709,7 +1942,7 @@ namespace Annotation
                     //}
 
                     // Find all the IDs that still exist
-                    IQueryable<long> queryResults = from l in db.DeletedLocations
+                    IQueryable<long> queryResults = from l in db.DeletedLocations.AsNoTracking()
                                                     where (l.DeletedOn > DeletedAfterThisTime)
                                                     select l.ID;
 
@@ -1730,12 +1963,12 @@ namespace Annotation
                     Debug.WriteLine("Could not find deleted locations after " + DeletedAfterThisTime.ToString());
                 }
             }
-             
-            return new long[0]; 
+
+            return new long[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public Location CreateLocation(Location new_location, long[] links)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public AnnotationService.Types.Location CreateLocation(AnnotationService.Types.Location new_location, long[] links)
         {
 
             using (var db = GetOrCreateDatabaseContext())
@@ -1772,15 +2005,15 @@ namespace Annotation
                     }
                 }
 
-                Location output_loc = new Location(db_obj);
+                AnnotationService.Types.Location output_loc = db_obj.Create();
                 output_loc.Links = links;
                 return output_loc;
 
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
-        public long[] Update(Location[] locations)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
+        public long[] Update(AnnotationService.Types.Location[] locations)
         {
             Dictionary<ConnectomeDataModel.Location, int> mapNewTypeToIndex = new Dictionary<ConnectomeDataModel.Location, int>(locations.Length);
 
@@ -1789,12 +2022,22 @@ namespace Annotation
 
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
             {
+                //For performance pre-load all of the database objects.  A loop was very slow for batch updates
+                List<ConnectomeDataModel.Location> dbLocations = _GetLocationsByID(db, locations.Where(l => l.DBAction == DBACTION.UPDATE).Select(l => l.ID).ToArray(), false);
+                Dictionary<long, ConnectomeDataModel.Location> dictObjs = dbLocations.ToDictionary(obj => obj.ID);
+
                 try
                 {
+                    
                     for (int iObj = 0; iObj < locations.Length; iObj++)
                     {
-                        Location t = locations[iObj];
-
+                        AnnotationService.Types.Location t = locations[iObj];
+                        if (t == null)
+                        {
+                            Debug.WriteLine("Null passed to location update.");
+                            continue;
+                        }
+                         
                         switch (t.DBAction)
                         {
                             case DBACTION.INSERT:
@@ -1806,9 +2049,24 @@ namespace Annotation
                                 break;
                             case DBACTION.UPDATE:
                                 ConnectomeDataModel.Location updateRow;
+                                if (dictObjs.TryGetValue(t.ID, out updateRow))
+                                { 
+                                    t.Sync(updateRow);
+                                    listID[iObj] = updateRow.ID;
+                                }
+                                else
+                                { 
+                                    Debug.WriteLine("Could not find location to update: " + t.ID.ToString()); 
+                                }
+
+                                break; 
+                                /*
+                                 * 
+                                 * 
+                                 * Remove the try/catch block for speed
                                 try
                                 {
-                                    updateRow = db.Locations.Find(t.ID);
+                                    
                                 }
                                 catch (System.ArgumentNullException)
                                 {
@@ -1820,16 +2078,36 @@ namespace Annotation
                                     Debug.WriteLine("Could not find structuretype to update: " + t.ID.ToString());
                                     break;
                                 }
-
+                                
                                 t.Sync(updateRow);
                                 listID[iObj] = updateRow.ID;
                                 //  db.ConnectomeDataModel.StructureTypes.(updateType);
                                 break;
+                                */
                             case DBACTION.DELETE:
+                                
                                 ConnectomeDataModel.Location deleteRow;
+                                /*
+                                if (dictObjs.TryGetValue(t.ID, out deleteRow))
+                                {
+                                    //Remove any links that exist before calling delete
+                                    db.LocationLinks.RemoveRange(deleteRow.LocationLinksA);
+                                    db.LocationLinks.RemoveRange(deleteRow.LocationLinksB);
+                                    t.Sync(deleteRow);
+                                    deleteRow.ID = t.ID;
+                                    listID[iObj] = deleteRow.ID;
+                                    db.Locations.Remove(deleteRow);
+                                }
+                                */
                                 try
                                 {
                                     deleteRow = db.Locations.Find(t.ID);
+                                    db.LocationLinks.RemoveRange(deleteRow.LocationLinksA);
+                                    db.LocationLinks.RemoveRange(deleteRow.LocationLinksB);
+                                    t.Sync(deleteRow);
+                                    deleteRow.ID = t.ID;
+                                    listID[iObj] = deleteRow.ID;
+                                    db.Locations.Remove(deleteRow);
                                 }
                                 catch (System.ArgumentNullException)
                                 {
@@ -1840,16 +2118,8 @@ namespace Annotation
                                 {
                                     Debug.WriteLine("Could not find structuretype to update: " + t.ID.ToString());
                                     break;
-                                }
-
-                                //Remove any links that exist before calling delete
-                                db.LocationLinks.RemoveRange(deleteRow.LocationLinksA);
-                                db.LocationLinks.RemoveRange(deleteRow.LocationLinksB);
-
-                                t.Sync(deleteRow);
-                                deleteRow.ID = t.ID;
-                                listID[iObj] = deleteRow.ID;
-                                db.Locations.Remove(deleteRow);
+                                } 
+                                
 
                                 break;
                         }
@@ -1872,13 +2142,13 @@ namespace Annotation
                 int iIndex = mapNewTypeToIndex[newObj];
                 listID[iIndex] = newObj.ID;
             }
-             
+
             return listID;
         }
 
         private ConnectomeDataModel.LocationLink _CreateLocationLink(ConnectomeEntities db, long SourceID, long TargetID, string username)
         {
-            if(username == null)
+            if (username == null)
                 username = ServiceModelUtil.GetUserForCall();
 
             ConnectomeDataModel.LocationLink newLink = db.LocationLinks.Create();
@@ -1888,7 +2158,7 @@ namespace Annotation
             try
             {
                 Source = db.Locations.Find(SourceID);
-                Target = db.Locations.Find(TargetID);                
+                Target = db.Locations.Find(TargetID);
             }
             catch (InvalidOperationException e)
             {
@@ -1921,10 +2191,10 @@ namespace Annotation
 
             newLink.Username = username;
 
-            return newLink; 
+            return newLink;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
         public void CreateLocationLink(long SourceID, long TargetID)
         {
             using (ConnectomeEntities db = new ConnectomeDataModel.ConnectomeEntities())
@@ -1937,7 +2207,7 @@ namespace Annotation
             return;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Modify")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Annotator")]
         public void DeleteLocationLink(long SourceID, long TargetID)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
@@ -1984,13 +2254,13 @@ namespace Annotation
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public LocationLink[] GetLocationLinksForSection(long section, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out LocationLink[] DeletedLinks)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.LocationLink[] GetLocationLinksForSection(long section, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out AnnotationService.Types.LocationLink[] DeletedLinks)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
                 //TODO: This needs a real assignment, but I haven't created the table yet
-                DeletedLinks = new LocationLink[0];
+                DeletedLinks = new AnnotationService.Types.LocationLink[0];
                 DateTime start = DateTime.Now;
                 DateTime? ModifiedAfter;
                 if (ModifiedAfterThisUtcTime == 0)
@@ -2009,11 +2279,11 @@ namespace Annotation
 
                     Debug.WriteLine(section.ToString() + ": Query: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
-                    //LocationLink[] retList = new LocationLink[locationLinks.Count];
+                    //AnnotationService.Types.LocationLink[] retList = new AnnotationService.Types.LocationLink[locationLinks.Count];
 
                     //Debug.WriteLine(section.ToString() + ": To list: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
-                    LocationLink[] retList = locationLinks.Select(link => new LocationLink(link)).ToArray();
+                    AnnotationService.Types.LocationLink[] retList = locationLinks.Select(link => link.Create()).ToArray();
                     Debug.WriteLine(section.ToString() + ": Loop: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
                     return retList;
@@ -2030,16 +2300,16 @@ namespace Annotation
                 }
             }
 
-            return new LocationLink[0];
+            return new AnnotationService.Types.LocationLink[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public LocationLink[] GetLocationLinksForSectionInMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out LocationLink[] DeletedLinks)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.LocationLink[] GetLocationLinksForSectionInMosaicRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out AnnotationService.Types.LocationLink[] DeletedLinks)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
                 //TODO: This needs a real assignment, but I haven't created the table yet
-                DeletedLinks = new LocationLink[0];
+                DeletedLinks = new AnnotationService.Types.LocationLink[0];
                 DateTime start = DateTime.Now;
                 DateTime? ModifiedAfter;
                 if (ModifiedAfterThisUtcTime == 0)
@@ -2057,8 +2327,8 @@ namespace Annotation
                     var locationLinks = db.SelectSectionLocationLinksInMosaicBounds((double)section, bbox.ToGeometry(), MinRadius, ModifiedAfter);// (section, ModifiedAfter).ToList();
 
                     Debug.WriteLine(section.ToString() + ": Query: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
-                    
-                    LocationLink[] retList = locationLinks.Select(link => new LocationLink(link)).ToArray();
+
+                    AnnotationService.Types.LocationLink[] retList = locationLinks.Select(link => link.Create()).ToArray();
                     Debug.WriteLine(section.ToString() + ": Loop: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
                     return retList;
@@ -2075,16 +2345,16 @@ namespace Annotation
                 }
             }
 
-            return new LocationLink[0];
+            return new AnnotationService.Types.LocationLink[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
-        public LocationLink[] GetLocationLinksForSectionInVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out LocationLink[] DeletedLinks)
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
+        public AnnotationService.Types.LocationLink[] GetLocationLinksForSectionInVolumeRegion(long section, BoundingRectangle bbox, double MinRadius, long ModifiedAfterThisUtcTime, out long QueryExecutedTime, out AnnotationService.Types.LocationLink[] DeletedLinks)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
                 //TODO: This needs a real assignment, but I haven't created the table yet
-                DeletedLinks = new LocationLink[0];
+                DeletedLinks = new AnnotationService.Types.LocationLink[0];
                 DateTime start = DateTime.Now;
                 DateTime? ModifiedAfter;
                 if (ModifiedAfterThisUtcTime == 0)
@@ -2103,7 +2373,7 @@ namespace Annotation
 
                     Debug.WriteLine(section.ToString() + ": Query: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
-                    LocationLink[] retList = locationLinks.Select(link => new LocationLink(link)).ToArray();
+                    AnnotationService.Types.LocationLink[] retList = locationLinks.Select(link => link.Create()).ToArray();
                     Debug.WriteLine(section.ToString() + ": Loop: " + new TimeSpan(DateTime.Now.Ticks - start.Ticks).TotalMilliseconds);
 
                     return retList;
@@ -2120,20 +2390,20 @@ namespace Annotation
                 }
             }
 
-            return new LocationLink[0];
+            return new AnnotationService.Types.LocationLink[0];
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public long[] GetLinkedLocations(long ID)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
             {
-                var links = (from u in db.LocationLinks where u.A == ID select u.B).Union(from u in db.LocationLinks where u.B == ID select u.A);
+                var links = (from u in db.LocationLinks.AsNoTracking() where u.A == ID select u.B).Union(from u in db.LocationLinks.AsNoTracking() where u.B == ID select u.A);
                 return links.ToArray();
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public LocationHistory[] GetLocationChangeLog(long? structure_id, DateTime? begin_time, DateTime? end_time)
         {
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
@@ -2141,32 +2411,19 @@ namespace Annotation
                 var result = db.SelectStructureLocationChangeLog(structure_id, begin_time, end_time);
                 List<SelectStructureLocationChangeLog_Result> listChanges = result.ToList();
 
-                return listChanges.Select(loc => new LocationHistory(loc)).ToArray();
+                return listChanges.Select(loc => loc.Create()).ToArray();
             }
         }
 
 
         #endregion
-
-
-        #region IDisposable Members
-
-        void IDisposable.Dispose()
-        {
-            if (_db != null)
-            {
-                _db.Dispose();
-                _db = null;
-            }
-        }
-
-        #endregion
+        
 
         #region ICircuit Members
 
-        public SortedDictionary<long, StructureType> StructureTypesDictionary = new SortedDictionary<long, StructureType>();
+        public SortedDictionary<long, AnnotationService.Types.StructureType> StructureTypesDictionary = new SortedDictionary<long, AnnotationService.Types.StructureType>();
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public Graphx getGraph(int cellID, int numHops)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
@@ -2188,7 +2445,7 @@ namespace Annotation
 
 
                 var structLocations = db.ApproximateStructureLocations();
-           
+
                 foreach (var result in structLocations)
                 {
                     if (result == null)
@@ -2196,7 +2453,7 @@ namespace Annotation
 
                     if (graph.NodeList.ContainsKey(result.ParentID))
                     {
-                        Structure structure = graph.NodeList[result.ParentID];
+                        AnnotationService.Types.Structure structure = graph.NodeList[result.ParentID];
 
                         if (structure.ParentID.HasValue)
                             graph.zLocationForSynapses.Add(result.ParentID, (long)Math.Round((double)result.Z));
@@ -2212,24 +2469,24 @@ namespace Annotation
                         graph.locationInfo.Add(result.ParentID, new LocationInfo((double)result.X, (double)result.Y, (double)result.Z, (double)result.Radius));
                     }
                 }
-                 
+
                 return graph;
             }
         }
 
-        
-        public Structure[] webService_GetStructures(Graphx graph, long[] ids)
+
+        public AnnotationService.Types.Structure[] webService_GetStructures(Graphx graph, long[] ids)
         {
             if (ids.Length == 0)
-                return new Structure[0]; 
+                return new AnnotationService.Types.Structure[0];
 
-            // connect to the structure webservice 
-            Structure[] FoundStructures = GetStructuresByIDs(ids, true);
+            // connect to the AnnotationService.Types.Structure webservice 
+            AnnotationService.Types.Structure[] FoundStructures = GetStructuresByIDs(ids, true);
 
             List<long> ListMissingChildrenIDs = new List<long>();
 
             //Add the root structure to nodelist if it not already added
-            foreach (Structure structure in FoundStructures)
+            foreach (AnnotationService.Types.Structure structure in FoundStructures)
             {
                 if (!graph.NodeList.ContainsKey(structure.ID))
                 {
@@ -2246,7 +2503,7 @@ namespace Annotation
             {
                 return new List<long>();
             }
-            
+
             // Store all them missing structure ids and call webservice
             List<long> MissingRootStructureIds = new List<long>();
 
@@ -2259,14 +2516,14 @@ namespace Annotation
                 }
             }
 
-            Structure[] MissingStructures = webService_GetStructures(graph, MissingRootStructureIds.ToArray());
+            AnnotationService.Types.Structure[] MissingStructures = webService_GetStructures(graph, MissingRootStructureIds.ToArray());
 
             List<long> ListMissingChildrenIDs = new List<long>();
 
-            foreach (Structure structure in MissingStructures)
+            foreach (AnnotationService.Types.Structure structure in MissingStructures)
             {
                 if (structure.ChildIDs == null)
-                    continue; 
+                    continue;
 
                 foreach (long childID in structure.ChildIDs)
                 {
@@ -2278,18 +2535,18 @@ namespace Annotation
             }
 
             //Find all synapses and gap junctions
-            Structure[] ChildStructObjs = webService_GetStructures(graph, ListMissingChildrenIDs.ToArray());
+            AnnotationService.Types.Structure[] ChildStructObjs = webService_GetStructures(graph, ListMissingChildrenIDs.ToArray());
 
             List<long> ListAbsentSiblings = new List<long>();
 
             //Find missing structures and populate the list
-            foreach (Structure child in ChildStructObjs)
+            foreach (AnnotationService.Types.Structure child in ChildStructObjs)
             {
                 //Temp Hack to skip desmosomes
                 if (child.Links == null)
-                    continue; 
+                    continue;
 
-                foreach (StructureLink link in child.Links)
+                foreach (AnnotationService.Types.StructureLink link in child.Links)
                 {
 
                     if (!graph.NodeList.ContainsKey(link.SourceID))
@@ -2306,15 +2563,15 @@ namespace Annotation
                 }
             }
 
-            Structure[] SiblingStructures = webService_GetStructures(graph, ListAbsentSiblings.ToArray());
+            AnnotationService.Types.Structure[] SiblingStructures = webService_GetStructures(graph, ListAbsentSiblings.ToArray());
 
             //Find missing structures and populate the list
-            foreach (Structure child in ChildStructObjs)
+            foreach (AnnotationService.Types.Structure child in ChildStructObjs)
             {
                 if (child.Links == null)
-                    continue; 
+                    continue;
 
-                foreach (StructureLink link in child.Links)
+                foreach (AnnotationService.Types.StructureLink link in child.Links)
                 {
                     if (!graph.NodeList.ContainsKey(link.SourceID))
                     {
@@ -2327,8 +2584,8 @@ namespace Annotation
                     }
 
                     //After this point both nodes are already in the graph and we can create an edge
-                    Structure SourceCell = graph.NodeList[link.SourceID];
-                    Structure TargetCell = graph.NodeList[link.TargetID];
+                    AnnotationService.Types.Structure SourceCell = graph.NodeList[link.SourceID];
+                    AnnotationService.Types.Structure TargetCell = graph.NodeList[link.TargetID];
 
                     if (TargetCell.ParentID != null && SourceCell.ParentID != null)
                     {
@@ -2348,7 +2605,7 @@ namespace Annotation
 
             //Find a list of the parentIDs we are missing, and add them to the graph, and return them
             //so we can easily make another hop later
-            foreach (Structure sibling in SiblingStructures)
+            foreach (AnnotationService.Types.Structure sibling in SiblingStructures)
             {
                 if (sibling.ParentID.HasValue == false)
                     continue;
@@ -2365,7 +2622,7 @@ namespace Annotation
             return ListAbsentParents;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public long[] getStructuresByTypeID(int typeID)
         {
             long[] structuresList;
@@ -2373,7 +2630,7 @@ namespace Annotation
             using (ConnectomeEntities db = GetOrCreateReadOnlyContext())
             {
 
-                IQueryable<long> res = from a in db.Structures where a.TypeID == typeID select a.ID;
+                IQueryable<long> res = from a in db.Structures.AsNoTracking() where a.TypeID == typeID select a.ID;
 
                 structuresList = res.ToArray();
             }
@@ -2383,7 +2640,7 @@ namespace Annotation
 
         // num=1 structures
         // num=0 locations
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public string[] getTopConnectedStructures(int num)
         {
             using (ConnectomeEntities db = GetOrCreateDatabaseContext())
@@ -2439,7 +2696,7 @@ namespace Annotation
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public string[] getTopConnectedCells()
         {
             List<string> result = new List<string>();
@@ -2464,18 +2721,18 @@ namespace Annotation
 
             return result.ToArray();
 
-                /*
-                 * 
-            var res = from s in db.ConnectomeDataModel.Structures where s.ParentID == null select s.ID;
-            var res2 = from a in db.ConnectomeDataModel.Structures where res.Contains(a.ID) select new { label = a.Label, id = a.ID };
+            /*
+             * 
+        var res = from s in db.ConnectomeDataModel.Structures where s.ParentID == null select s.ID;
+        var res2 = from a in db.ConnectomeDataModel.Structures where res.Contains(a.ID) select new { label = a.Label, id = a.ID };
 
-            foreach (var item in res2)
-            {
-                result.Add(item.label.ToString() + "-" + item.id.ToString());
-            }
+        foreach (var item in res2)
+        {
+            result.Add(item.label.ToString() + "-" + item.id.ToString());
+        }
 
-            return result.ToArray();
-                 */
+        return result.ToArray();
+             */
         }
 
 
@@ -2507,10 +2764,10 @@ namespace Annotation
                 }
             }
 
-            return labelDictionary; 
+            return labelDictionary;
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public SynapseObject getSynapseStats()
         {
             SortedDictionary<long, long> topConnections = new SortedDictionary<long, long>();
@@ -2567,21 +2824,21 @@ namespace Annotation
             }
         }
 
-        [PrincipalPermission(SecurityAction.Demand, Role = "Read")]
+        [PrincipalPermission(SecurityAction.Demand, Role = "Reader")]
         public string[] getSynapses(int cellID)
         {
-            Structure mainStructure = GetStructureByID(cellID, true);
-            if(mainStructure.ChildIDs == null)
+            AnnotationService.Types.Structure mainStructure = GetStructureByID(cellID, true);
+            if (mainStructure.ChildIDs == null)
             {
                 return new string[0];
             }
 
-            Structure[] synapses = GetStructuresByIDs(mainStructure.ChildIDs, false);
+            AnnotationService.Types.Structure[] synapses = GetStructuresByIDs(mainStructure.ChildIDs, false);
             SortedDictionary<long, long> temp = new SortedDictionary<long, long>();
 
             temp[1] = synapses.Count();
 
-            foreach (Structure child in synapses)
+            foreach (AnnotationService.Types.Structure child in synapses)
             {
                 if (temp.Keys.Contains(child.TypeID))
                     temp[child.TypeID]++;
@@ -2610,11 +2867,8 @@ namespace Annotation
 
         }
 
-        
+
+
         #endregion
-
-
-
-
     }
 }

@@ -10,9 +10,9 @@ using System.IO;
 namespace Geometry.Transforms
 {
     [Serializable]
-    public abstract class ReferencePointBasedTransform  : IITKSerialization, ITransformInfo, ITransformControlPoints, ISerializable
+    public abstract class ReferencePointBasedTransform  : IITKSerialization, ITransformInfo, ITransformControlPoints, ISerializable, IMemoryMinimization
     {
-        public TransformInfo Info { get; internal set; }
+        public TransformInfo Info { get; set; }
 
         public override string ToString()
         {
@@ -158,7 +158,7 @@ namespace Geometry.Transforms
                                               ControlBounds.Top + vector.Y);
         }
 
-        public static GridRectangle CalculateControlBounds(ReferencePointBasedTransform[] transforms)
+        public static GridRectangle CalculateControlBounds(ITransformControlPoints[] transforms)
         {
             if (transforms == null || transforms.Length == 0)
                 return new GridRectangle();
@@ -184,13 +184,50 @@ namespace Geometry.Transforms
 
             return new GridRectangle(minX, maxX, minY, maxY);
         }
-         
+
+        public static GridRectangle CalculateMappedBounds(ITransformControlPoints[] transforms)
+        {
+            if (transforms == null || transforms.Length == 0)
+                return new GridRectangle();
+
+            double minX = double.MaxValue;
+            double minY = double.MaxValue;
+            double maxX = double.MinValue;
+            double maxY = double.MinValue;
+
+            foreach (ReferencePointBasedTransform T in transforms)
+            {
+                GridRectangle R = T.MappedBounds;
+
+                if (R.Left < minX)
+                    minX = R.Left;
+                if (R.Right > maxX)
+                    maxX = R.Right;
+                if (R.Bottom < minY)
+                    minY = R.Bottom;
+                if (R.Top > maxY)
+                    maxY = R.Top;
+            }
+
+            return new GridRectangle(minX, maxX, minY, maxY);
+        }
+
+        /// <summary>
+        /// Return Control points intersecting the rectangle
+        /// </summary>
+        /// <param name="gridRect"></param>
+        /// <returns></returns>
         public List<MappingGridVector2> IntersectingControlRectangle(GridRectangle gridRect)
         {
             List<MappingGridVector2> foundPoints = this.controlPointsRTree.Intersects(gridRect.ToRTreeRect(0)).ToList();
             return foundPoints;
         }
 
+        /// <summary>
+        /// Return mapped control points intersecting the rectangle
+        /// </summary>
+        /// <param name="gridRect"></param>
+        /// <returns></returns>
         public List<MappingGridVector2> IntersectingMappedRectangle(GridRectangle gridRect)
         {
             List<MappingGridVector2> foundPoints = this.mappedPointsRTree.Intersects(gridRect.ToRTreeRect(0)).ToList();
@@ -355,5 +392,19 @@ namespace Geometry.Transforms
             stream.Write(output.ToString());
         }
 
+        public virtual void MinimizeMemory()
+        {
+            try
+            {
+                rwLockTriangles.EnterWriteLock();
+                this._controlPointsRTree = null;
+                this._mappedPointsRTree = null;
+            }
+            finally
+            {
+                if (rwLockTriangles.IsWriteLockHeld)
+                    rwLockTriangles.ExitWriteLock();
+            }
+        }
     }
 }

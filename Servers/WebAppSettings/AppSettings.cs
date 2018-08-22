@@ -3,11 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Configuration;
-
-using AnnotationVizLib;
+using Geometry;
 
 namespace VikingWebAppSettings
-{ 
+{
+    public static class UriExtensions
+    {
+        public static Uri Append(this Uri uri, params string[] paths)
+        {
+            return new Uri(paths.Aggregate(uri.AbsoluteUri, (current, path) => string.Format("{0}/{1}", current.TrimEnd('/'), path.TrimStart('/'))));
+        }
+    }
+
     public static class AppSettings
     {
         public static string GetApplicationSetting(string name)
@@ -41,9 +48,28 @@ namespace VikingWebAppSettings
             return GetApplicationSetting("DatabaseConnectionName");
         }
 
+        public static string GetIdentityServerURLString()
+        {
+            return GetApplicationSetting("IdentityServer");
+        }
+
         public static string GetDefaultConnectionString()
         {
             return GetConnectionString(GetDefaultDatabaseConnectionStringName());
+        }
+
+        public static string[] GetAllowedOrganizations()
+        {
+            return GetStringList("AllowedOrganizations");
+        }
+
+        public static string[] GetStringList(string name)
+        {
+            string setting = GetApplicationSetting(name);
+            if (setting == null)
+                return new string[0];
+
+            return setting.Split(';').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
         }
 
         public static string GetConnectionString(string name)
@@ -83,6 +109,26 @@ namespace VikingWebAppSettings
             get
             {
                 return GetApplicationSetting("VolumeURL");
+            }
+        }
+
+        public static Uri VolumeURI
+        {
+            get
+            {
+                Uri uri = null;
+                if (Uri.TryCreate(VolumeURL, UriKind.Absolute, out uri))
+                    return uri;
+
+                return null;
+            }
+        }
+
+        public static Uri ODataURL
+        {
+            get
+            {
+                return VolumeURI.Append("OData");
             }
         }
 

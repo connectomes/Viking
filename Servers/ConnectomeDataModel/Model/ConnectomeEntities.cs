@@ -39,7 +39,6 @@ namespace ConnectomeDataModel
 
     public partial class ConnectomeEntities
     {
-
         public void ConfigureAsReadOnly()
         {
             //Note, disabling LazyLoading breaks loading of children and links unless they have been populated previously.
@@ -263,7 +262,37 @@ namespace ConnectomeDataModel
 
             return new AnnotationCollection(dictStructures, dictLocations);
         }
-        
+
+        public virtual int SplitStructure(long keepStructureID, long firstLocationIDOfSplitStructure, out long NewStructureID)
+        {
+            var keepStructureIDParameter = new ObjectParameter("KeepStructureID", keepStructureID);
+            var firstLocationIDOfSplitStructureParameter = new ObjectParameter("FirstLocationIDOfSplitStructure", firstLocationIDOfSplitStructure);
+            var NewStructureIDParam = new ObjectParameter("SplitStructureID", typeof(long));
+
+            int retval = ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SplitStructure", keepStructureIDParameter, firstLocationIDOfSplitStructureParameter, NewStructureIDParam);
+            if (retval != 0)
+                NewStructureID = -1;
+            else
+                NewStructureID = (long)NewStructureIDParam.Value;
+
+            return retval;
+        }
+
+        public virtual int SplitStructureAtLocationLink(long LocationIDOfKeepStructure, long LocationIDOfSplitStructure, out long NewStructureID)
+        {
+            var LocationIDOfKeepStructureParameter = new ObjectParameter("LocationIDOfKeepStructure", LocationIDOfKeepStructure);
+            var LocationIDOfSplitStructureParameter = new ObjectParameter("LocationIDOfSplitStructure", LocationIDOfSplitStructure);
+            var NewStructureIDParam = new ObjectParameter("SplitStructureID", typeof(long));
+
+            int retval = ((IObjectContextAdapter)this).ObjectContext.ExecuteFunction("SplitStructureAtLocationLink", LocationIDOfKeepStructureParameter, LocationIDOfSplitStructureParameter, NewStructureIDParam);
+            if (retval != 0)
+                NewStructureID = -1;
+            else
+                NewStructureID = (long)NewStructureIDParam.Value;
+
+            return retval;
+        }
+
 
         public SortedSet<long> SelectNetworkStructureIDs(IEnumerable<long> IDs, int numHops)
         {
@@ -308,21 +337,34 @@ namespace ConnectomeDataModel
 
         public IQueryable<Structure> SelectNetworkStructures(IEnumerable<long> IDs, int numHops)
         {
-            SortedSet<long> NodeIDs = SelectNetworkStructureIDs(IDs, numHops);
+            var proc = new SelectNetworkStructuresProcedure()
+            {
+                Hops = numHops,
+                IDs = udt_integer_list.Create(IDs)
+            };
+              
+            if (this.Database.Connection.State != System.Data.ConnectionState.Open)
+                this.Database.Connection.Open();
 
-            return from s in this.Structures
-                   where NodeIDs.Contains(s.ID)
-                   select s; 
+            Structure[] NodeObjects; 
+            using (System.Data.Common.DbDataReader reader = EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteReader(this.Database, proc))
+            {
+                NodeObjects = ((IObjectContextAdapter)this).ObjectContext.Translate<Structure>(reader, "Structures", MergeOption.NoTracking).ToArray();
+            }
+
+            this.Database.Connection.Close();
+
+            return NodeObjects.AsQueryable<Structure>();
         }
 
-        public IQueryable<Structure> SelectNetworkChildStructures(IEnumerable<long> IDs, int numHops)
+        public IQueryable<Structure> SelectNetworkChildStructuresIDs(IEnumerable<long> IDs, int numHops)
         {
             var proc = new SelectNetworkChildStructureIDsProcedure()
             {
                 Hops = numHops,
                 IDs = udt_integer_list.Create(IDs)
             };
-
+            
             SortedSet<long> ChildStructureIDs = new SortedSet<long>(EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteStoredProcedure<long>(this.Database, proc));
             
             return from s in this.Structures
@@ -330,16 +372,133 @@ namespace ConnectomeDataModel
                    select s;
         }
 
+        public IQueryable<StructureSpatialCache> SelectNetworkStructureSpatialData(IEnumerable<long> IDs, int numHops)
+        {
+            var proc = new SelectNetworkStructureSpatialData()
+            {
+                Hops = numHops,
+                IDs = udt_integer_list.Create(IDs)
+            };
+
+            if (this.Database.Connection.State != System.Data.ConnectionState.Open)
+                this.Database.Connection.Open();
+
+            List<StructureSpatialCache> NodeObjects;
+            using (System.Data.Common.DbDataReader reader = EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteReader(this.Database, proc))
+            {
+                NodeObjects = ConvertReaderToList(reader);
+                //NodeObjects = ((IObjectContextAdapter)this).ObjectContext.Translate<StructureSpatialCache>(reader, "StructureSpatialCaches", MergeOption.NoTracking).ToArray();
+            }
+
+            this.Database.Connection.Close();
+
+            return NodeObjects.AsQueryable<StructureSpatialCache>();
+            /*
+            SortedSet<long> ChildStructureIDs = new SortedSet<long>(EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteStoredProcedure<long>(this.Database, proc));
+
+            return from s in this.StructureSpatialCaches
+                   where ChildStructureIDs.Contains(s.ID)
+                   select s;*/
+        }
+
+        public IQueryable<StructureSpatialCache> SelectNetworkChildStructureSpatialData(IEnumerable<long> IDs, int numHops)
+        {
+            var proc = new SelectNetworkChildStructureSpatialData()
+            {
+                Hops = numHops,
+                IDs = udt_integer_list.Create(IDs)
+            };
+
+            if (this.Database.Connection.State != System.Data.ConnectionState.Open)
+                this.Database.Connection.Open();
+
+            List<StructureSpatialCache> NodeObjects = new List<StructureSpatialCache>();
+            using (System.Data.Common.DbDataReader reader = EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteReader(this.Database, proc))
+            {
+                NodeObjects = ConvertReaderToList(reader);
+               // NodeObjects = ((IObjectContextAdapter)this).ObjectContext.Translate<StructureSpatialCache>(reader, "StructureSpatialCaches", MergeOption.NoTracking).ToArray();
+            }
+
+            this.Database.Connection.Close();
+
+            return NodeObjects.AsQueryable<StructureSpatialCache>();
+            /*
+            SortedSet<long> ChildStructureIDs = new SortedSet<long>(EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteStoredProcedure<long>(this.Database, proc));
+
+            return from s in this.StructureSpatialCaches
+                   where ChildStructureIDs.Contains(s.ID)
+                   select s;
+                   */
+        }
+
+        public List<StructureSpatialCache> ConvertReaderToList(System.Data.Common.DbDataReader reader)
+        {
+            List<StructureSpatialCache> NodeObjects = new List<StructureSpatialCache>();
+
+            while (reader.Read())
+            {
+                StructureSpatialCache row = new StructureSpatialCache();
+                row.ID = reader.GetInt64(0); 
+                row.BoundingRect = System.Data.Entity.Spatial.DbGeometry.FromBinary(reader.GetFieldValue<Microsoft.SqlServer.Types.SqlGeometry>(1).STAsBinary().Buffer);
+                row.Area = reader.GetDouble(2);
+                row.Volume = reader.GetDouble(3);
+                row.MaxDimension = reader.GetInt32(4);
+                row.MinZ = reader.GetDouble(5);
+                row.MaxZ = reader.GetDouble(6);
+                row.ConvexHull = System.Data.Entity.Spatial.DbGeometry.FromBinary(reader.GetFieldValue<Microsoft.SqlServer.Types.SqlGeometry>(7).STAsBinary().Buffer);
+                row.LastModified = reader.GetDateTime(8);
+
+                NodeObjects.Add(row);
+            }
+
+            return NodeObjects;
+        }
+
+        public IQueryable<Structure> SelectNetworkChildStructures(IEnumerable<long> IDs, int numHops)
+        {
+            var proc = new SelectNetworkChildStructuresProcedure()
+            {
+                Hops = numHops,
+                IDs = udt_integer_list.Create(IDs)
+            };
+
+            if (this.Database.Connection.State != System.Data.ConnectionState.Open)
+                this.Database.Connection.Open();
+
+            Structure[] ChildStructures;
+            using (System.Data.Common.DbDataReader reader = EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteReader(this.Database, proc))
+            {
+                ChildStructures = ((IObjectContextAdapter)this).ObjectContext.Translate<Structure>(reader, "Structures", MergeOption.NoTracking).ToArray();
+            }
+
+            this.Database.Connection.Close();
+
+            return ChildStructures.AsQueryable<Structure>();
+        }
+
         public IQueryable<StructureLink> SelectNetworkStructureLinks(IEnumerable<long> IDs, int numHops)
         {
-            SortedSet<long> NodeIDs = SelectNetworkStructureIDs(IDs, numHops);
-            
-            var ChildStructures = from S in Structures where S.ParentID.HasValue && NodeIDs.Contains(S.ParentID.Value) select S;
-            return from SL in this.StructureLinks
-                    join CSource in ChildStructures on SL.SourceID equals CSource.ID
-                    join CTarget in ChildStructures on SL.TargetID equals CTarget.ID
-                    select SL;
+            var proc = new SelectNetworkStructureLinksProcedure()
+            {
+                Hops = numHops,
+                IDs = udt_integer_list.Create(IDs)
+            };
+
+            if (this.Database.Connection.State != System.Data.ConnectionState.Open)
+                this.Database.Connection.Open();
+
+            StructureLink[] Links;
+            using (System.Data.Common.DbDataReader reader = EntityFrameworkExtras.EF6.DatabaseExtensions.ExecuteReader(this.Database, proc))
+            {
+                Links = ((IObjectContextAdapter)this).ObjectContext.Translate<StructureLink>(reader, "StructureLinks", MergeOption.NoTracking).ToArray();
+            }
+
+            this.Database.Connection.Close();
+
+            return Links.AsQueryable<StructureLink>();
         }
+
+
 
 
         /// <summary>
@@ -388,6 +547,79 @@ namespace ConnectomeDataModel
                 }
             } 
         }
+         
+        [DbFunction("ConnectomeModel.Store", "ufnStructureArea")]
+        public string GetStructureArea(long ID)
+        {
+            var objectContext = ((IObjectContextAdapter)this).ObjectContext;
 
+            var parameters = new List<ObjectParameter>();
+            parameters.Add(new ObjectParameter("Id", ID));
+
+            return objectContext.CreateQuery<string>("ConnectomeModel.Store.ufnStructureArea(@Id)", parameters.ToArray())
+                 .Execute(MergeOption.NoTracking)
+                 .FirstOrDefault();
+        }
+
+        [DbFunction("ConnectomeModel.Store", "ufnStructureVolume")]
+        public string GetStructureVolume(long ID)
+        {
+            var objectContext = ((IObjectContextAdapter)this).ObjectContext;
+
+            var parameters = new List<ObjectParameter>();
+            parameters.Add(new ObjectParameter("Id", ID));
+
+            return objectContext.CreateQuery<string>("ConnectomeModel.Store.ufnStructureVolume(@Id)", parameters.ToArray())
+                 .Execute(MergeOption.NoTracking)
+                 .FirstOrDefault();
+        }
+
+        [DbFunction("ConnectomeModel.Store", "XYScale")]
+        public double GetXYScale()
+        {
+            var objectContext = ((IObjectContextAdapter)this).ObjectContext;
+
+            var parameters = new List<ObjectParameter>(); 
+            
+            return objectContext.CreateQuery<double>("ConnectomeModel.Store.XYScale()", parameters.ToArray())
+                 .Execute(MergeOption.NoTracking)
+                 .FirstOrDefault();
+        }
+
+        [DbFunction("ConnectomeModel.Store", "ZScale")]
+        public double GetZScale()
+        {
+            var objectContext = ((IObjectContextAdapter)this).ObjectContext;
+
+            var parameters = new List<ObjectParameter>();
+
+            return objectContext.CreateQuery<double>("ConnectomeModel.Store.ZScale()", parameters.ToArray())
+                 .Execute(MergeOption.NoTracking)
+                 .FirstOrDefault();
+        }
+
+        [DbFunction("ConnectomeModel.Store", "XYScaleUnits")]
+        public string GetXYUnits()
+        {
+            var objectContext = ((IObjectContextAdapter)this).ObjectContext;
+
+            var parameters = new List<ObjectParameter>();
+
+            return objectContext.CreateQuery<string>("ConnectomeModel.Store.XYScaleUnits()", parameters.ToArray())
+                 .Execute(MergeOption.NoTracking)
+                 .FirstOrDefault();
+        }
+
+        [DbFunction("ConnectomeModel.Store", "ZScaleUnits")]
+        public string GetZUnits()
+        {
+            var objectContext = ((IObjectContextAdapter)this).ObjectContext;
+
+            var parameters = new List<ObjectParameter>();
+
+            return objectContext.CreateQuery<string>("ConnectomeModel.Store.ZScaleUnits()", parameters.ToArray())
+                 .Execute(MergeOption.NoTracking)
+                 .FirstOrDefault();
+        }
     }
 }

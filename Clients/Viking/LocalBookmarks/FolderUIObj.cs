@@ -5,14 +5,25 @@ using System.Linq;
 using System.Text;
 using Viking.Common;
 using LocalBookmarks;
-using connectomes.utah.edu.XSD.BookmarkSchema.xsd;
+using connectomes.utah.edu.XSD.BookmarkSchemaV2.xsd;
 using Viking.UI.Controls;
 using System.Windows.Forms;
 using Viking.Common.UI;
+using VikingXNAGraphics;
+
 
 
 namespace LocalBookmarks
 {
+
+    public enum ShapeType
+    {
+        RING,
+        ARROW,
+        STAR, 
+        INHERIT
+    }
+
     [Viking.Common.UI.TreeViewVisible()]
     partial class FolderUIObj : UIObjTemplate<Folder>
     {
@@ -87,12 +98,12 @@ namespace LocalBookmarks
 
         public override string Name
         {
-            get { return Data.name; }
+            get { return Data.Name; }
             set 
             {
-                Data.name = value;
-                if (Data.name == null)
-                    Data.name = ""; 
+                Data.Name = value;
+                if (Data.Name == null)
+                    Data.Name = ""; 
                 ValueChangedEvent("Name");
             }
         }
@@ -125,6 +136,104 @@ namespace LocalBookmarks
                 menu.MenuItems.Add(3, ImportMenu);
 
                 return menu; 
+            }
+        }
+
+        public ShapeType Shape
+        {
+            get
+            {
+                return Data.Shape.ToShape();
+            }
+
+            set
+            {
+                Data.Shape = value.ToShapeString();
+                ValueChangedEvent("Shape");
+                UpdateChildViews();
+            }
+        }
+
+        public Microsoft.Xna.Framework.Graphics.Texture2D ShapeTexture
+        {
+            get
+            {
+                if (Shape == ShapeType.INHERIT)
+                {
+                    if(Parent == null)
+                    {
+                        return BookmarkOverlay.DefaultTexture;
+                    }
+
+                    return Parent.ShapeTexture;
+                }
+
+                return Shape.ToTexture();
+            }
+
+        }
+
+
+        private Microsoft.Xna.Framework.Color? _Color = new Microsoft.Xna.Framework.Color?();
+
+        public Microsoft.Xna.Framework.Color Color
+        {
+            get
+            {
+                if(_Color.HasValue)
+                {
+                    return _Color.Value;
+                }
+
+                if (Data.Color == null)
+                {
+                    if (Parent == null)
+                    {
+                        return Global.DefaultColor;
+                    }
+                    else
+                    {
+                        return Parent.Color; 
+                    }
+                }
+
+                try
+                {
+                    var gColor = Geometry.Graphics.Color.FromInteger(Data.Color);
+                    _Color = new Microsoft.Xna.Framework.Color((int)gColor.R, (int)gColor.G, (int)gColor.B, (int)gColor.A);
+                    return _Color.Value;
+                }
+                catch(FormatException)
+                {
+                    System.Diagnostics.Trace.WriteLine("Could not parse color: " + Data.Color);
+                    return Global.DefaultColor;
+                }
+            }
+            set
+            {
+                if(value == null)
+                {
+                    Data.Color = null;
+                    _Color = new Microsoft.Xna.Framework.Color();
+                }
+
+                Data.Color = value.ToHexString();
+                _Color = value;
+                ValueChangedEvent("Color");
+                UpdateChildViews();
+            }
+        }
+
+        private void UpdateChildViews()
+        {
+            foreach(BookmarkUIObj bookmark in this.Bookmarks)
+            {
+                bookmark.UpdateView();
+            }
+            
+            foreach(FolderUIObj folder in this.Folders)
+            {
+                folder.UpdateChildViews();
             }
         }
 
@@ -213,7 +322,7 @@ namespace LocalBookmarks
 
         public override string ToolTip
         {
-            get { return Data.name; }
+            get { return Data.Name; }
         }
 
 

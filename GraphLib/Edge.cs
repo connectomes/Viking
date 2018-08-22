@@ -2,26 +2,46 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Diagnostics; 
+using System.Diagnostics;
+using System.Runtime.Serialization;
 
 namespace GraphLib
-{ 
-    public class Edge<NODEKEY> : IComparer<Edge<NODEKEY>>, IComparable<Edge<NODEKEY>>, IEquatable<Edge<NODEKEY>>
+{
+    [Serializable]
+    public class Edge<NODEKEY> : IComparer<Edge<NODEKEY>>, IComparable<Edge<NODEKEY>>, IEquatable<Edge<NODEKEY>>, ISerializable
         where NODEKEY : IComparable<NODEKEY>, IEquatable<NODEKEY>
     {
-        public NODEKEY SourceNodeKey { get; private set; }
-        public NODEKEY TargetNodeKey { get; private set; }
+        public readonly NODEKEY SourceNodeKey;
+        public readonly NODEKEY TargetNodeKey;
 
-        public virtual float Weight  { get { return 1.0f; } }
+        public virtual bool Directional { get; set; }
+
+        public virtual double Weight { get; set; } = 1.0;
 
         public bool IsLoop {  get { return SourceNodeKey.Equals(TargetNodeKey); } }
 
-        public Edge(NODEKEY SourceNode, NODEKEY TargetNode)
+
+        /// <summary>
+        /// A collection of additional attributes that have been added to the node
+        /// </summary>
+        public Dictionary<string, object> Attributes = new Dictionary<string, object>();
+
+
+        public Edge(NODEKEY SourceNode, NODEKEY TargetNode, bool Directional)
         {
             Debug.Assert(SourceNode != null);
             Debug.Assert(TargetNode != null);
             this.SourceNodeKey = SourceNode;
             this.TargetNodeKey = TargetNode;
+            this.Directional = Directional;
+        }
+
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue("SourceNodeKey", SourceNodeKey, typeof(NODEKEY));
+            info.AddValue("TargetNodeKey", TargetNodeKey, typeof(NODEKEY));
+            info.AddValue("Directional", Directional, typeof(bool));
+            info.AddValue("Weight", Weight, typeof(float));
         }
 
         public virtual int Compare(Edge<NODEKEY> x, Edge<NODEKEY> y)
@@ -39,7 +59,13 @@ namespace GraphLib
             return x.CompareTo(y);
         }
 
-        public virtual int CompareTo(Edge<NODEKEY> other)
+        protected NODEKEY[] OrderedNodeKeys()
+        {
+            NODEKEY lowestKey = this.SourceNodeKey.CompareTo(this.TargetNodeKey) < 0 ? this.SourceNodeKey : this.TargetNodeKey;
+            NODEKEY highestKey = this.SourceNodeKey.CompareTo(this.TargetNodeKey) < 0 ? this.TargetNodeKey : this.SourceNodeKey;
+            return new NODEKEY[] { lowestKey, highestKey };
+        } 
+        protected int CompareToDirectional(Edge<NODEKEY> other)
         {
             int SourceComparison = this.SourceNodeKey.CompareTo(other.SourceNodeKey);
             int TargetComparison = this.TargetNodeKey.CompareTo(other.TargetNodeKey);
@@ -51,6 +77,35 @@ namespace GraphLib
                 return SourceComparison;
 
             return TargetComparison;
+        } 
+        protected int CompareToBidirectional(Edge<NODEKEY> other)
+        {
+            NODEKEY[] thisKeys = this.OrderedNodeKeys();
+            NODEKEY[] otherKeys = other.OrderedNodeKeys();
+
+            //Find if any key comparisons are unequal
+            int[] comparisons = thisKeys.Select((key, i) => key.CompareTo(otherKeys[i])).Where(c => c != 0).ToArray();
+
+            if (comparisons.Length == 0)
+                return 0;
+
+            return comparisons.First();
+        }
+
+        public virtual int CompareTo(Edge<NODEKEY> other)
+        {
+            int DirectionalCompare = this.Directional.CompareTo(other.Directional);
+            if (DirectionalCompare != 0)
+                return DirectionalCompare;
+
+            if (Directional)
+            {
+                return CompareToDirectional(other);
+            }
+            else
+            {
+                return CompareToBidirectional(other);
+            }
         }
 
         public bool Equals(Edge<NODEKEY> other)
@@ -61,7 +116,63 @@ namespace GraphLib
             if ((object)other == null)
                 return false;
 
-            return this.SourceNodeKey.Equals(other.SourceNodeKey) && this.TargetNodeKey.Equals(other.TargetNodeKey);
+            if (this.Directional != other.Directional)
+                return false; 
+
+            if(Directional)
+                return this.SourceNodeKey.Equals(other.SourceNodeKey) && this.TargetNodeKey.Equals(other.TargetNodeKey);
+            else
+            {
+                return (this.SourceNodeKey.Equals(other.SourceNodeKey) && this.TargetNodeKey.Equals(other.TargetNodeKey)) ||
+                       (this.SourceNodeKey.Equals(other.TargetNodeKey) && this.TargetNodeKey.Equals(other.SourceNodeKey));
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return (SourceNodeKey.GetHashCode() / 2) + (TargetNodeKey.GetHashCode() / 2);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj as Edge<NODEKEY> != null)
+                return this.Equals((Edge<NODEKEY>)obj);
+
+            return base.Equals(obj);
+        }
+        
+        public static bool operator ==(Edge<NODEKEY> A, Edge<NODEKEY> B)
+        {
+            if (System.Object.ReferenceEquals(A, B))
+            {
+                return true;
+            }
+
+            if ((object)A != null)
+                return A.Equals(B);
+
+            return false;
+        }
+
+        public static bool operator !=(Edge<NODEKEY> A, Edge<NODEKEY> B)
+        {
+            if (System.Object.ReferenceEquals(A, B))
+            {
+                return false;
+            }
+
+            if ((object)A != null)
+                return !A.Equals(B);
+
+            return true;
+        }
+
+        public override string ToString()
+        {
+            if(this.Directional)
+                return string.Format("{0}  -> {1}", this.SourceNodeKey, this.TargetNodeKey);
+            else
+                return string.Format("{0} <-> {1}", this.SourceNodeKey, this.TargetNodeKey);
         }
     }
 }

@@ -34,6 +34,27 @@ namespace Viking.VolumeModel
         }
     }
 
+    public class EndpointInformation
+    {
+        public readonly Uri AuthenticationURL;
+        public readonly Uri EndpointURL;
+        public readonly Uri ExportURL;
+
+        public EndpointInformation(string Authentication, string Endpoint, string exportURL)
+        {
+            AuthenticationURL = new Uri(Authentication);
+            EndpointURL = new Uri(Endpoint);
+            this.ExportURL = new Uri(exportURL);
+        }
+
+        internal static EndpointInformation CreateFromElement(XElement elem)
+        {
+            return new EndpointInformation(elem.GetAttributeCaseInsensitive("authentication").Value,
+                                           elem.GetAttributeCaseInsensitive("endpoint").Value, 
+                                           elem.GetAttributeCaseInsensitive("exporturl").Value);
+        }
+    }
+
     public class TileServerInfo
     {
         public string Host { get; private set; }
@@ -73,16 +94,14 @@ namespace Viking.VolumeModel
         }
     }
 
-    
+
 
     /// <summary>
     /// Collection of volumes, sections and tiles. There is only one dataset loaded at a time.
-    /// TODO: Split parsing the VikingXML into a seperate class
+    /// TODO: Split parsing the VikingXML into a separate class
     /// </summary>
     public class Volume
     {
-
-
         /// <summary>
         /// Friendly name for the volume
         /// </summary>
@@ -117,6 +136,8 @@ namespace Viking.VolumeModel
         /// If true the VikingXML requests the client update the server volume positions if they are noticeably different.
         /// </summary>
         public bool UpdateServerVolumePositions = false;
+
+        public EndpointInformation Endpoint = null;
 
         private string _UniqueID = "";
         /// <summary>
@@ -156,11 +177,6 @@ namespace Viking.VolumeModel
             }
         }
 
-        public Section[] Sections
-        {
-            get { return SectionsTable.Values.ToArray(); }
-        }
-
         /// <summary>
         /// Names of transform groups that can be used to register images into the volume
         /// </summary>
@@ -191,7 +207,7 @@ namespace Viking.VolumeModel
         /// <summary>
         /// Maps a section number to its section object
         /// </summary>
-        public SortedList<int, Section> SectionsTable = new SortedList<int, Section>();
+        public SortedList<int, Section> Sections = new SortedList<int, Section>();
 
         /// <summary>
         /// Sorted list containing the transforms for each volume transform we find
@@ -202,7 +218,14 @@ namespace Viking.VolumeModel
 
         public int NumSections
         {
-            get { return SectionsTable.Count; }
+            get { return Sections.Count; }
+        }
+
+        private AxisUnits _DefaultXYScale;
+
+        public Geometry.AxisUnits DefaultXYScale
+        {
+            get { return _DefaultXYScale;}
         }
 
         /// <summary>
@@ -217,11 +240,11 @@ namespace Viking.VolumeModel
 
             //Optimistic implementation that looks at section immediately above
             int refnumber = section.Number - 1;
-            int minSectionNumber = SectionsTable.Keys.Min();
+            int minSectionNumber = Sections.Keys.Min();
             while (refnumber >= minSectionNumber)
             {
-                if (SectionsTable.ContainsKey(refnumber))
-                    return SectionsTable[refnumber];
+                if (Sections.ContainsKey(refnumber))
+                    return Sections[refnumber];
                 refnumber--;
             }
 
@@ -240,11 +263,11 @@ namespace Viking.VolumeModel
 
             //Optimistic implementation that looks at section immediately above
             int refnumber = section.Number + 1;
-            int maxSectionNumber = SectionsTable.Keys.Max();
+            int maxSectionNumber = Sections.Keys.Max();
             while (refnumber <= maxSectionNumber)
             {
-                if (SectionsTable.ContainsKey(refnumber))
-                    return SectionsTable[refnumber];
+                if (Sections.ContainsKey(refnumber))
+                    return Sections[refnumber];
                 refnumber++;
             }
 
@@ -253,7 +276,7 @@ namespace Viking.VolumeModel
 
         private List<TileServerInfo> TileServerList = new List<TileServerInfo>();
 
-
+        
 
         /// <summary>
         /// 
@@ -261,14 +284,20 @@ namespace Viking.VolumeModel
         /// <param name="path">The host and path to the volume, no filenames</param>
         /// <param name="localCachePath">LocaL cache path corresponding to the path</param>
         /// <param name="workerThread">optional worker thread to report progress</param>
-        public Volume(string path, string localCachePath, System.ComponentModel.BackgroundWorker workerThread)
+        public Volume(string path, string localCachePath, Viking.Common.IProgressReporter workerThread)
         {
             //Load the default settings from user preferences
             //            ChannelInfo DefaultChannel = new ChannelInfo();
             DefaultChannels = new ChannelInfo[0];
 
+            XDocument VolumeXML = LoadXDocument(path, null, workerThread);
+            if(IsVolumePathLocal(path))
+            {
+                //This code remains, but the value is replaced if a value is found in the XML file
+                this._Host = RemoveXMLExtension(path);
+                this._IsLocal = false;
+            }
 
-            XDocument VolumeXML = Load(path, workerThread);
             this._VolumeElement = GetVolumeElement(VolumeXML);
             LoadDefaultsFromVolumeElement(_VolumeElement);
 
@@ -284,7 +313,7 @@ namespace Viking.VolumeModel
         /// <param name="path">The host and path to the volume, no filenames</param>
         /// <param name="localCachePath">LocaL cache path corresponding to the path</param>
         /// <param name="workerThread">optional worker thread to report progress</param>
-        public Volume(string path, string localCachePath, XDocument VolumeXML, System.ComponentModel.BackgroundWorker workerThread)
+        public Volume(string path, string localCachePath, XDocument VolumeXML, Viking.Common.IProgressReporter workerThread)
         {
             //Load the default settings from user preferences
             //ChannelInfo DefaultChannel = new ChannelInfo();
@@ -352,27 +381,36 @@ namespace Viking.VolumeModel
 
         #endregion
 
+        public static bool IsVolumePathLocal(string path)
+        {
+            Uri uri = new Uri(path);
+            if (uri.Scheme == "http" || uri.Scheme == "https")
+                return false;
+
+            return true; 
+        }
+
         /// <summary>
         /// Loads a path, determines whether path refers to XML file or a local directory
         /// </summary>
         /// <param name="path"></param>
-        protected XDocument Load(string path, BackgroundWorker workerThread)
+        public static XDocument LoadXDocument(string path, System.Net.NetworkCredential UserCredentials = null, Viking.Common.IProgressReporter workerThread = null)
         {
             Uri uri = new Uri(path);
 
-            workerThread.ReportProgress(0, "Requesting " + path);
+            if(workerThread != null)
+                workerThread.ReportProgress(0, "Requesting " + path);
 
             XDocument XMLInitData;
             if (uri.Scheme == "http" || uri.Scheme == "https")
-                XMLInitData = LoadHTTP(path);
+                XMLInitData = LoadHTTP(path, UserCredentials);
             else
                 XMLInitData = LoadLocal(uri.LocalPath);
 
             return XMLInitData;
         }
-        
 
-        protected XDocument LoadHTTP(string path)
+        protected static string RemoveXMLExtension(string path)
         {
             //Remove the .xml file from the path
             int iRemove = path.LastIndexOf('/');
@@ -382,30 +420,33 @@ namespace Viking.VolumeModel
                 VolumePath = VolumePath.Remove(iRemove);
             }
 
-            //This code remains, but the value is replaced if a value is found in the XML file
-            this._Host = VolumePath;
+            return VolumePath;
+        }
+        
 
-            this._IsLocal = false;
+        protected static XDocument LoadHTTP(string path, System.Net.NetworkCredential UserCredentials)
+        { 
             Uri pathURI = new Uri(path);
 
             HttpWebRequest request = WebRequest.Create(pathURI) as HttpWebRequest;
             if (pathURI.Scheme.ToLower() == "https")
-                request.Credentials = this.UserCredentials;
+                request.Credentials = UserCredentials;
 
             request.CachePolicy = new System.Net.Cache.RequestCachePolicy(System.Net.Cache.RequestCacheLevel.Revalidate);
-
-            WebResponse response = null;
+             
             XDocument reader = null;
             try
             {
-                response = request.GetResponse();
-
-                Stream responseStream = response.GetResponseStream();
-
-                using (StreamReader XMLStream = new StreamReader(responseStream))
+                using (WebResponse response = request.GetResponse())
                 {
 
-                    reader = XDocument.Parse(XMLStream.ReadToEnd());
+                    Stream responseStream = response.GetResponseStream();
+
+                    using (StreamReader XMLStream = new StreamReader(responseStream))
+                    {
+
+                        reader = XDocument.Parse(XMLStream.ReadToEnd());
+                    }
                 }
             }
             catch (WebException e)
@@ -413,12 +454,7 @@ namespace Viking.VolumeModel
                 /*PORT: Don't have forms, throw a better exception*/
                 throw new WebException("Error connecting to volume server: \n" + path + "\n" + e.Message, e);
             }
-            finally
-            {
-                if (response != null)
-                    response.Close();
-            }
-
+            
             return reader;
         }
 
@@ -509,6 +545,9 @@ namespace Viking.VolumeModel
                     case "channelinfo":
                         this.DefaultChannels = ChannelInfo.FromXML(elem);
                         break;
+                    case "volumetoendpoint":
+                        this.Endpoint = EndpointInformation.CreateFromElement(elem);
+                        break;
                 }
             }
         }
@@ -582,7 +621,7 @@ namespace Viking.VolumeModel
         }
 
 
-        void Initialize(XDocument reader, BackgroundWorker workerThread)
+        void Initialize(XDocument reader, Viking.Common.IProgressReporter workerThread)
         {
             List<CreateSectionThreadingObj> ListSectionThreadingObj = new List<CreateSectionThreadingObj>();
             List<CreateStosTransformThreadingObj> ListStosGridTransformThreadingObj = new List<CreateStosTransformThreadingObj>();
@@ -703,6 +742,10 @@ namespace Viking.VolumeModel
                         this.TileServerList.Add(info);
                         break;
 
+                    case "scale":
+                        this._DefaultXYScale = VikingXMLUtils.ParseScale(elem);
+                        break;
+
                     default:
                         break;
                 }
@@ -803,6 +846,8 @@ namespace Viking.VolumeModel
             CreateVolumeTransforms(workerThread);
             workerThread.ReportProgress(101, "Done!");
         }
+
+       
         
 
         private IContinuousTransform EnsureTransformIsContinuous(ITransform transform)
@@ -817,7 +862,7 @@ namespace Viking.VolumeModel
             return transform as IContinuousTransform;
         }
 
-        private void WaitForCreateSectionThreads(List<CreateSectionThreadingObj> ListSectionThreadingObj, BackgroundWorker workerThread)
+        private void WaitForCreateSectionThreads(List<CreateSectionThreadingObj> ListSectionThreadingObj, Viking.Common.IProgressReporter workerThread)
         {
             //            XMLStream.Close();
             //            response.Close();
@@ -873,7 +918,7 @@ namespace Viking.VolumeModel
                 }
             }
 
-            this.SectionsTable.Add(section.Number, section);
+            this.Sections.Add(section.Number, section);
         }
 
         private void AddTileServerToSectionMappings(Section section)
@@ -901,9 +946,15 @@ namespace Viking.VolumeModel
                         cachedTransform = binaryFormatter.Deserialize(binFile) as ITransform;
                     }
                 }
+                else
+                {
+                    Geometry.Global.TryDeleteCacheFile(CacheStosPath);
+                }
             }
             catch (Exception)
             {
+                Geometry.Global.TryDeleteCacheFile(CacheStosPath);
+
                 return null;
             }
 
@@ -933,9 +984,15 @@ namespace Viking.VolumeModel
                                                                                             stosInfo);
                     }
                 }
+                else
+                {
+                    Geometry.Global.TryDeleteCacheFile(CacheStosPath);
+                }
             }
             catch (Exception)
             {
+                Geometry.Global.TryDeleteCacheFile(CacheStosPath);
+
                 return null;
             }
 
@@ -966,7 +1023,7 @@ namespace Viking.VolumeModel
         /// <summary>
         /// Adds a transform to each section mapping it into each of the volume spaces we found
         /// </summary>
-        public void CreateVolumeTransforms(BackgroundWorker workerThread)
+        public void CreateVolumeTransforms(Viking.Common.IProgressReporter workerThread)
         {
             int iSectionProgress = 0;
             foreach (string TransformKey in Transforms.Keys)
@@ -976,7 +1033,7 @@ namespace Viking.VolumeModel
                 SortedList<int, ITransform> TList = Transforms[TransformKey];
 
                 //Create a registration chain so we know what order to register the sections in
-                RegistrationTree tree = RegistrationTree.Build(TList, SectionsTable.Keys);
+                RegistrationTree tree = RegistrationTree.Build(TList, Sections.Keys);
 
                 iSectionProgress = 0;
                 //OK, walk the tree, adding from the root nodes down
@@ -1009,7 +1066,7 @@ namespace Viking.VolumeModel
                             if (info == null)
                                 continue;
 
-                            if (false == SectionsTable.ContainsKey(info.MappedSection))
+                            if (false == Sections.ContainsKey(info.MappedSection))
                                 continue;
 
                             //Add this mapping to our dictionary:
@@ -1063,9 +1120,7 @@ namespace Viking.VolumeModel
                                     {
                                         trans = TList[childSection];
                                     }
-
-                                    StreamWriter fs = null;
-
+                                    
                                     IITKSerialization itkTransform = TList[childSection] as IITKSerialization;
                                     if (itkTransform != null)
                                     {

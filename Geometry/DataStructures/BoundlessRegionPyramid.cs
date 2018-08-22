@@ -84,9 +84,14 @@ namespace Geometry
             return BoundlessRegionPyramidLevel<T>.ToArray(Cells, iGrid);
         }
 
-        public GridRange<T> SubGridForRegion(GridRectangle volumeBounds)
+        public GridRange<T> SubGridForRegion(GridRectangle? volumeBounds)
         {
-            GridIndicies iGrid = GridIndicies.FromRectangle(volumeBounds, this.ScaledCellDimensions);
+            if(!volumeBounds.HasValue)
+            {
+                throw new ArgumentException("Volume Bounds does not have a value.  Continuuous transforms should  ");
+            }
+
+            GridIndicies iGrid = GridIndicies.FromRectangle(volumeBounds.Value, this.ScaledCellDimensions);
             return BoundlessRegionPyramidLevel<T>.ToSubGrid(Cells, iGrid);
         }
 
@@ -108,7 +113,6 @@ namespace Geometry
         public static GridRange<T> ToSubGrid(ConcurrentDictionary<GridIndex, T> grid, GridIndicies iGrid)
         {
             T[,] output = new T[iGrid.Width, iGrid.Height];
-            int i = 0;
             for (int iY = iGrid.iMinY; iY < iGrid.iMaxY; iY++)
             {
                 for (int iX = iGrid.iMinX; iX < iGrid.iMaxX; iX++)
@@ -130,6 +134,8 @@ namespace Geometry
     public interface IRegionPyramid<T> where T : class
     {
         IRegionPyramidLevel<T> GetLevel(double SinglePixelRadius);
+
+        double LevelToPixelDimension(int Level);
     }
 
     /// <summary>
@@ -153,14 +159,20 @@ namespace Geometry
         /// <summary>
         /// Width & Height of a grid cell in the RegionPyramid
         /// </summary>
-        public GridCellDimensions CellDimensions;
+        public readonly GridCellDimensions CellDimensions;
+
+        /// <summary>
+        /// The base of the exponential we use to determine the level in a region pyramid
+        /// </summary>
+        protected readonly double PowerScale = 4;
 
         ConcurrentDictionary<int, BoundlessRegionPyramidLevel<T>> Levels = new ConcurrentDictionary<int, BoundlessRegionPyramidLevel<T>>();
          
-        public BoundlessRegionPyramid(GridCellDimensions cellDimensions)
+        public BoundlessRegionPyramid(GridCellDimensions cellDimensions, double powerScale)
         {  
             //Level 0 cell dimensions match the boundary dimensions
             CellDimensions = cellDimensions;//new GridCellDimensions(Boundaries.Width, Boundaries.Height); 
+            PowerScale = powerScale;
         }
 
         protected BoundlessRegionPyramidLevel<T> GetOrAddLevel(int Level)
@@ -170,20 +182,26 @@ namespace Geometry
 
         protected virtual int PixelDimensionToLevel(double SinglePixelRadius)
         {
-            int Level = (int)Math.Floor(Math.Log(SinglePixelRadius, 2));
+            int Level = (int)Math.Floor(Math.Log(SinglePixelRadius, PowerScale));
             if (Level < 0)
                 Level = 0;
             return Level;
         }
 
-        protected virtual double LevelToPixelDimension(int Level)
+        public virtual double LevelToPixelDimension(int Level)
         {
-            return Math.Pow(2.0, Level);
+            return Math.Pow(PowerScale, Level);
         }
 
+        /// <summary>
+        /// Size of an object that occupies a single pixel at the given level
+        /// </summary>
+        /// <param name="screenBounds"></param>
+        /// <param name="Level"></param>
+        /// <returns></returns>
         protected virtual double MinRadiusForLevel(GridRectangle screenBounds, int Level)
         {
-            return Math.Pow(2.0, Level);
+            return Math.Pow(PowerScale, Level);
         }
          
         public IRegionPyramidLevel<T> GetLevel(double SinglePixelRadius)

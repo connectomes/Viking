@@ -28,32 +28,114 @@ namespace AnnotationVizLib
                 NodeAttribs.Add("viewLabel", node.Key);
 
             NodeAttribs.Add("StructureIDs", SourceStructures(node));
-
+            NodeAttribs.Add("NumberOfCells", node.Structures.Count.ToString());
+            NodeAttribs.Add("InputTypeCount", node.InputEdgesCount.ToString());
+            NodeAttribs.Add("OutputTypeCount", node.OutputEdgesCount.ToString());
+            NodeAttribs.Add("BidirectionalTypeCount", node.BidirectionalEdgesCount.ToString());
+            
             if (VolumeURL != null)
                 NodeAttribs.Add("StructureURL", StructureLabelUrl(node));
 
             if (VolumeURL != null)
                 NodeAttribs.Add("MorphologyURL", MorphologyUrl(node));
 
-            tlpnode.AddAttributes(NodeAttribs);
+            foreach (string attrib in node.Attributes.Keys)
+            {
+                if (!NodeAttribs.ContainsKey(attrib) && !TLPAttributes.AttributesExcludedFromTLP.Contains(attrib))
+                {
+                    NodeAttribs.Add(attrib, node.Attributes[attrib].ToString());
+                }
+            }
+
+            tlpnode.AddStandardizedAttributes(NodeAttribs);
 
             return tlpnode;
         }
 
-        public TLPViewEdge CreateTLPEdge(MotifEdge edge)
+        public TLPViewEdge CreateTLPEdge(MotifGraph graph, MotifEdge edge)
         {
             TLPViewEdge tlpedge = this.addEdge(edge.SourceNodeKey, edge.TargetNodeKey);
             IDictionary<string, string> EdgeAttribs = AttributeMapper.AttribsForLabel(edge.SynapseType, TLPAttributes.StandardEdgeSourceLabelToTLPAppearance);
-
-            EdgeAttribs.Add("SourceStructures", EdgeStructuresString(edge.SourceStructIDs));
-            EdgeAttribs.Add("TargetStructures", EdgeStructuresString(edge.TargetStructIDs));
+                        
+            EdgeAttribs.Add("SourceParentStructures", EdgeStructuresString(edge.SourceStructIDs.Keys));
+            EdgeAttribs.Add("ConnectionSourceStructures", EdgeStructuresString(edge.SourceStructIDs.SelectMany(s => s.Value)));
+            EdgeAttribs.Add("TargetParentStructures", EdgeStructuresString(edge.TargetStructIDs.Keys));
+            EdgeAttribs.Add("ConnectionTargetStructures", EdgeStructuresString(edge.TargetStructIDs.SelectMany(s => s.Value)));
+              
             EdgeAttribs.Add("viewLabel", EdgeLabel(edge));
             EdgeAttribs.Add("edgeType", edge.SynapseType);
-              
-            tlpedge.AddAttributes(EdgeAttribs);
+
+            EdgeAttribs.Add("SourceLabel", edge.SourceNodeKey);
+            EdgeAttribs.Add("TargetLabel", edge.TargetNodeKey);
+
+            //AppendEdgeStatistics(graph, edge, ref EdgeAttribs);
+
+            foreach (string attrib in edge.Attributes.Keys)
+            {
+                if (!EdgeAttribs.ContainsKey(attrib) && !TLPAttributes.AttributesExcludedFromTLP.Contains(attrib))
+                {
+                    EdgeAttribs.Add(attrib, edge.Attributes[attrib].ToString());
+                }
+            }
+
+            tlpedge.AddStandardizedAttributes(EdgeAttribs);
 
             return tlpedge;
         }
+        
+        /// <summary>
+        /// Append statistics about the edge to edge attributes
+        /// </summary>
+        /// <param name="edge"></param>
+        private void AppendEdgeStatistics(MotifGraph graph, MotifEdge edge, ref IDictionary<string, string> EdgeAttribs)
+        {
+            MotifNode sourceNode = graph.Nodes[edge.SourceNodeKey];
+            MotifNode targetNode = graph.Nodes[edge.TargetNodeKey];
+
+            double PercentOccurenceInSourceCells = ((double)edge.SourceCellCount / (double)sourceNode.StructureCount) * 100.0;
+            EdgeAttribs.Add("%OccurenceInSourceCells", PercentOccurenceInSourceCells.ToString());
+
+            double PercentOccurenceInTargetCells = ((double)edge.TargetCellCount / (double)targetNode.StructureCount) * 100.0;
+            EdgeAttribs.Add("%OccurenceInTargetCells", PercentOccurenceInTargetCells.ToString());
+             
+            if (edge.Directional)
+            {
+                double PercentOfSourceOutput = ((double)edge.SourceConnectionCount / (double)sourceNode.OutputEdgesCount) * 100.0;
+                double PercentOfTargetInput = ((double)edge.TargetConnectionCount / (double)targetNode.InputEdgesCount) * 100.0;
+
+                EdgeAttribs.Add("%ofSourceTypeOutput", PercentOfSourceOutput.ToString());
+                EdgeAttribs.Add("%ofTargetTypeInput", PercentOfTargetInput.ToString()); 
+            }
+            else
+            {
+                double PercentOfSourceBidirectionalOutput = ((double)edge.SourceConnectionCount / (double)sourceNode.BidirectionalEdgesCount) * 100.0;
+                double PercentOfTargetBidirectionalOutput = ((double)edge.TargetConnectionCount / (double)targetNode.BidirectionalEdgesCount) * 100.0;
+
+                EdgeAttribs.Add("%ofSourceTypeBidirectional", PercentOfSourceBidirectionalOutput.ToString());
+                EdgeAttribs.Add("%ofTargetTypeBidirectional", PercentOfTargetBidirectionalOutput.ToString());
+            }
+
+            double AvgSourceLinks = edge.SourceStructIDs.Average(source => source.Value.Count);
+            double AvgTargetLinks = edge.TargetStructIDs.Average(target => target.Value.Count);
+
+            EdgeAttribs.Add("Avg#OfOutputsPerSource", AvgSourceLinks.ToString());
+            EdgeAttribs.Add("Avg#OfInputsPerTarget", AvgTargetLinks.ToString());
+
+            if (edge.SourceCellCount > 1)
+            { 
+
+                double StdDevSourceLinks = edge.SourceStructIDs.Select(source => (double)source.Value.Count).StdDev();
+                EdgeAttribs.Add("StdDevOfOutputsPerSource", StdDevSourceLinks.ToString());
+            }
+
+            if (edge.TargetCellCount > 1)
+            {
+                double StdDevTargetLinks = edge.TargetStructIDs.Select(target => (double)target.Value.Count).StdDev();
+                EdgeAttribs.Add("StdDevOfInputsPerTarget", StdDevTargetLinks.ToString());
+            } 
+        }
+
+        
 
         public string StructureLabelUrl(MotifNode node)
         {
@@ -80,7 +162,7 @@ namespace AnnotationVizLib
             StringBuilder sb = new StringBuilder();
 
             bool first = false; 
-            foreach(AnnotationService.Structure s in node.Structures)
+            foreach(IStructure s in node.Structures)
             {
                 if (!first)
                     first = true;
@@ -93,7 +175,7 @@ namespace AnnotationVizLib
             return sb.ToString(); 
         }
 
-        private string EdgeStructuresString(IList<long> structIDs)
+        private string EdgeStructuresString(IEnumerable<long> structIDs)
         {
             StringBuilder sb = new StringBuilder();
             bool first = false; 
@@ -138,7 +220,7 @@ namespace AnnotationVizLib
                 if (edge.SourceNodeKey == "Unlabeled" || edge.TargetNodeKey == "Unlabeled")
                     continue;
 
-                view.CreateTLPEdge(edge);
+                view.CreateTLPEdge(graph, edge);
             }
 
             return view; 

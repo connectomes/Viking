@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using WebAnnotationModel;
 using Geometry;
+using AnnotationService.Types;
 
 namespace WebAnnotationModel
 {
@@ -51,7 +52,7 @@ namespace WebAnnotationModel
         where INTERFACE : class
         where KEY : struct, IEquatable<KEY>
         where PROXY : System.ServiceModel.ClientBase<INTERFACE>
-        where WCFOBJECT : DataObject, new()
+        where WCFOBJECT : AnnotationService.Types.DataObject, new()
         where OBJECT : WCFObjBaseWithKey<KEY, WCFOBJECT>, new()
     {
         /// <summary>
@@ -574,9 +575,11 @@ namespace WebAnnotationModel
 
             DateTime TraceParseEnd = DateTime.UtcNow;
 
-            Trace.WriteLine("Sxn " + state.SectionNumber.ToString() + " finished " + typeof(OBJECT).ToString() + " query.  " + inventory.ObjectsInStore.Count + " returned");
-            Trace.WriteLine("\tQuery Time: " + new TimeSpan(TraceQueryEnd.Ticks - StartTime.Ticks).TotalSeconds.ToString() + " (sec) elapsed");
-            Trace.WriteLine("\tParse Time: " + new TimeSpan(TraceParseEnd.Ticks - TraceQueryEnd.Ticks).TotalSeconds.ToString() + " (sec) elapsed");
+#if DEBUG
+            TraceQueryDetails(SectionNumber, inventory.ObjectsInStore.Count, StartTime, TraceQueryEnd, TraceParseEnd);
+#endif
+
+            //Trace.WriteLine(sb.ToString());
 
             CallOnCollectionChanged(inventory);
 
@@ -665,16 +668,17 @@ namespace WebAnnotationModel
         private string PrepareQueryDetails(long SectionNumber, long numObjects, DateTime StartTime, DateTime QueryEndTime, DateTime ParseEndTime)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Sxn " + SectionNumber.ToString() + " finished " + typeof(OBJECT).ToString() + " query.  " + numObjects.ToString() + " returned");
-            sb.AppendLine("\tQuery Time: " + new TimeSpan(QueryEndTime.Ticks - StartTime.Ticks).TotalSeconds.ToString() + " (sec) elapsed");
-            sb.AppendLine("\tParse Time: " + new TimeSpan(ParseEndTime.Ticks - QueryEndTime.Ticks).TotalSeconds.ToString() + " (sec) elapsed");
+            sb.AppendFormat("Sxn {0} finished {1} query, {2} returned\n", SectionNumber, typeof(OBJECT), numObjects);
+            sb.AppendFormat("\tQuery time: {0} (sec)\n", new TimeSpan(QueryEndTime.Ticks - StartTime.Ticks).TotalSeconds);
+            sb.AppendFormat("\tParse time: {0} (sec)\n", new TimeSpan(ParseEndTime.Ticks - QueryEndTime.Ticks).TotalSeconds);
+             
             return sb.ToString();
         }
 
         private string PrepareQueryDetails(long SectionNumber, long numObjects, DateTime StartTime, DateTime QueryEndTime, DateTime ParseEndTime, DateTime EventsEndTime)
         {
             StringBuilder sb = new StringBuilder(PrepareQueryDetails(SectionNumber, numObjects, StartTime, QueryEndTime, ParseEndTime));
-            sb.AppendLine("\tEvents Time: " + new TimeSpan(EventsEndTime.Ticks - ParseEndTime.Ticks).TotalSeconds.ToString() + " (sec) elapsed");
+            sb.AppendFormat("\tEvents Time: {0} (sec)\n", new TimeSpan(EventsEndTime.Ticks - ParseEndTime.Ticks).TotalSeconds);
             return sb.ToString();
         }
 
@@ -845,6 +849,9 @@ namespace WebAnnotationModel
         /// <param name="serverDeletedObjects">Objects which have been deleted since the last query</param>
         public virtual ChangeInventory<OBJECT> ParseQuery(WCFOBJECT[] serverObjects, KEY[] serverDeletedObjects, GetObjectBySectionCallbackState<PROXY, OBJECT> state)
         {
+            if (serverObjects == null)
+                return new ChangeInventory<OBJECT>();
+
             OBJECT[] listObj = new OBJECT[0];
             List<OBJECT> deleted = new List<OBJECT>(serverDeletedObjects.Length);
             if (serverDeletedObjects != null)
@@ -1278,10 +1285,62 @@ namespace WebAnnotationModel
             return added; 
         }
 
-        
+        /// <summary>
+        /// Delete data for an object from our client and request new data from the server
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public virtual OBJECT Refresh(KEY key)
+        {
+            List<OBJECT> listForgotten = Refresh(new KEY[] { key });
+            return listForgotten.First();
+        }
 
         /// <summary>
-        /// Remove an object from IDToObject.  Delete event subscriptions on the object.
+        /// Delete data for an object from our client and request new data from the server
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public virtual List<OBJECT> Refresh(KEY[] keys)
+        {
+           
+            List<OBJECT> listForgotten = InternalDelete(keys);
+            CallOnCollectionChangedForDelete(listForgotten);
+
+            return this.GetObjectsByIDs(keys, true);
+        }
+
+        /// <summary>
+        /// Forget everything we know on the client about an object.  This will force a refresh from the
+        /// server for the next request.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public virtual OBJECT ForgetLocally(KEY key)
+        {
+            List<OBJECT> listForgotten = ForgetLocally(new KEY[] { key });
+            if (listForgotten.Count == 0)
+                return null;
+
+            return listForgotten.First();
+        }
+
+        /// <summary>
+        /// Forget everything we know on the client about an object.  This will force a refresh from the
+        /// server for the next request.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public virtual List<OBJECT> ForgetLocally(KEY[] keys)
+        {
+
+            List<OBJECT> listForgotten = InternalDelete(keys);
+            CallOnCollectionChangedForDelete(listForgotten);
+            return listForgotten;
+        }
+
+        /// <summary>
+        /// Remove our local cache for an object.  Delete event subscriptions on the object.
         /// Return object reference if the object was found an removed.
         /// </summary>
         protected virtual OBJECT TryRemoveObject(KEY key)

@@ -11,10 +11,12 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>AnnotationVizLibTests</RootNamespace>
     <AssemblyName>AnnotationVizLibTests</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <TargetFrameworkProfile />
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,29 +38,97 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\Packages\EntityFramework.6.2.0\lib\net45\EntityFramework.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\Packages\EntityFramework.6.2.0\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.OData.Client, Version=6.15.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.OData.Client.6.15.0\lib\net40\Microsoft.OData.Client.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.OData.Core, Version=6.15.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.OData.Core.6.15.0\lib\portable-net45+win+wpa81\Microsoft.OData.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.OData.Edm, Version=6.15.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.OData.Edm.6.15.0\lib\portable-net45+win+wpa81\Microsoft.OData.Edm.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Spatial, Version=6.15.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.Spatial.6.15.0\lib\portable-net45+win+wpa81\Microsoft.Spatial.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.Types, Version=14.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.SqlServer.Types.14.0.314.76\lib\net40\Microsoft.SqlServer.Types.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Threading.Tasks, Version=1.0.12.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Threading.Tasks.Extensions, Version=1.0.12.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Threading.Tasks.Extensions.Desktop, Version=1.0.168.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.Extensions.Desktop.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>..\Servers\WebVisualization\packages\Newtonsoft.Json.6.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="protobuf-net, Version=2.0.0.668, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
+      <HintPath>..\Packages\protobuf-net.2.0.0.668\lib\net40\protobuf-net.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Simple.OData.Client.Core, Version=4.25.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Simple.OData.V4.Client.4.25.5\lib\portable-net45+win8+wp8+wpa81\Simple.OData.Client.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Simple.OData.Client.Dynamic, Version=4.25.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Simple.OData.V4.Client.4.25.5\lib\portable-net45+win8+wp8+wpa81\Simple.OData.Client.Dynamic.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Simple.OData.Client.V4.Adapter, Version=4.25.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Simple.OData.V4.Client.4.25.5\lib\portable-net45+win8+wp8+wpa81\Simple.OData.Client.V4.Adapter.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Net" />
     <Reference Include="System.Net.Http" />
-    <Reference Include="System.Net.Http.Formatting, Version=5.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Servers\WebVisualization\packages\Microsoft.AspNet.WebApi.Client.5.2.2\lib\net45\System.Net.Http.Formatting.dll</HintPath>
+    <Reference Include="System.Net.Http.Extensions, Version=2.2.29.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.Net.Http.2.2.29\lib\net45\System.Net.Http.Extensions.dll</HintPath>
+      <Private>True</Private>
     </Reference>
+    <Reference Include="System.Net.Http.Formatting, Version=5.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.AspNet.WebApi.Client.5.2.4\lib\net45\System.Net.Http.Formatting.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Net.Http.Primitives, Version=4.2.29.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.Net.Http.2.2.29\lib\net45\System.Net.Http.Primitives.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Net.Http.WebRequest" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ServiceModel" />
-    <Reference Include="System.Web.Http, Version=5.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Servers\WebVisualization\packages\Microsoft.AspNet.WebApi.Core.5.2.2\lib\net45\System.Web.Http.dll</HintPath>
+    <Reference Include="System.Web.Http, Version=5.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.AspNet.WebApi.Core.5.2.4\lib\net45\System.Web.Http.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Web.Http.WebHost, Version=5.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Servers\WebVisualization\packages\Microsoft.AspNet.WebApi.WebHost.5.2.2\lib\net45\System.Web.Http.WebHost.dll</HintPath>
+    <Reference Include="System.Web.Http.WebHost, Version=5.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\Packages\Microsoft.AspNet.WebApi.WebHost.5.2.4\lib\net45\System.Web.Http.WebHost.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -69,15 +139,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ColorMappingTest.cs" />
+    <Compile Include="Initilization.cs" />
     <Compile Include="MorphologyGraphTest.cs" />
     <Compile Include="MotifGraphTest.cs" />
     <Compile Include="NeuronGraphTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Service References\AnnotationService\Reference.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Reference.svcmap</DependentUpon>
-    </Compile>
+    <Compile Include="SqlServerTypes\Loader.cs" />
+    <Compile Include="TestUtils.cs" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Service References\" />
@@ -87,70 +155,67 @@
       <SubType>Designer</SubType>
     </None>
     <None Include="packages.config" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.CreateStructureRetval.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.Graphx.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.Location.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.LocationLink.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.LocationPositionOnly.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.Structure.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.StructureLink.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.StructureType.datasource" />
-    <None Include="Properties\DataSources\AnnotationUtils.AnnotationService.SynapseObject.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.CreateStructureRetval.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.Graphx.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.Location.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.LocationLink.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.LocationPositionOnly.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.Structure.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.StructureLink.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.StructureType.datasource" />
-    <None Include="Properties\DataSources\AnnotationVizLib.AnnotationService.SynapseObject.datasource" />
-    <None Include="Service References\AnnotationService\Annotation.Service.GraphClasses.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="Service References\AnnotationService\Annotation.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="Service References\AnnotationService\Arrays.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="Service References\AnnotationService\service.wsdl" />
-    <None Include="Service References\AnnotationService\service.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="Service References\AnnotationService\service3.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="Service References\AnnotationService\service31.xsd">
-      <SubType>Designer</SubType>
-    </None>
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationClient.Graphx.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationClient.SynapseObject.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.AnnotationSet.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.AnnotationSet1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.CreateStructureRetval.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.CreateStructureRetval1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Graphx.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Graphx1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Location.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Location1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.LocationHistory.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.LocationHistory1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.LocationLink.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.LocationLink1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.LocationPositionOnly.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.LocationPositionOnly1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.PermittedStructureLink.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.PermittedStructureLink1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Scale.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Scale1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Structure.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.Structure1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.StructureHistory.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.StructureHistory1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.StructureLink.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.StructureLink1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.StructureType.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.StructureType1.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.SynapseObject.datasource" />
+    <None Include="Properties\DataSources\AnnotationVizLib.WCFClient.AnnotationService.SynapseObject1.datasource" />
   </ItemGroup>
   <ItemGroup>
-    <WCFMetadataStorage Include="Service References\AnnotationService\" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Service References\AnnotationService\configuration91.svcinfo" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Service References\AnnotationService\configuration.svcinfo" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Service References\AnnotationService\Reference.svcmap">
-      <Generator>WCF Proxy Generator</Generator>
-      <LastGenOutput>Reference.cs</LastGenOutput>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
+    <ProjectReference Include="..\AnnotationVizLibODataClient\AnnotationVizLibODataClient.csproj">
+      <Project>{ff2c1828-20ca-47c0-9b69-85694cccecd3}</Project>
+      <Name>AnnotationVizLibODataClient</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\AnnotationVizLibSimpleODataClient\AnnotationVizLibSimpleODataClient.csproj">
+      <Project>{b3a4f95d-a8ac-4094-9dda-22dc972d7e5d}</Project>
+      <Name>AnnotationVizLibSimpleODataClient</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\AnnotationVizLibWCFClient\AnnotationVizLibWCFClient.csproj">
+      <Project>{902d95b5-10a9-4ebe-9dbd-ddb78375551b}</Project>
+      <Name>AnnotationVizLibWCFClient</Name>
+    </ProjectReference>
     <ProjectReference Include="..\AnnotationVizLib\AnnotationVizLib.csproj">
       <Project>{A89A628B-3FFA-4271-B99A-E45C3D72D3E3}</Project>
       <Name>AnnotationVizLib</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Geometry\Geometry.csproj">
+      <Project>{eacb87e8-a5e3-417e-a9ef-b80c2a68c020}</Project>
+      <Name>Geometry</Name>
     </ProjectReference>
     <ProjectReference Include="..\GraphLib\GraphLib.csproj">
       <Project>{d6f219fc-733b-481f-bf78-d34a7cb893ec}</Project>
       <Name>GraphLib</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ODataClient\ODataClient.csproj">
+      <Project>{9ddb7c0e-1f00-4efc-8d11-4ba6a00fb9b4}</Project>
+      <Name>ODataClient</Name>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
     <Content Include="Resources\ColorMap12x8.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -158,14 +223,67 @@
     <Content Include="Resources\ColorMap3x2.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\ExportColorMapping\0001_5604_CMPv2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\0030_Glycine_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\0061_GABA_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\0090_AGB_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\0184_GABA_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\0277_Glycine_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\0371_PCAImage.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\ImageColorMaps.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\StructureColors.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ExportColorMapping\StructureTypeColors.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\ImageColorMaps.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\StructureColors.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\StructureTypeColors.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="SqlServerTypes\readme.htm" />
+    <Content Include="SqlServerTypes\x64\msvcr120.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="SqlServerTypes\x64\SqlServerSpatial140.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="SqlServerTypes\x86\msvcr120.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="SqlServerTypes\x86\SqlServerSpatial140.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets" Condition="Exists('..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets'))" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

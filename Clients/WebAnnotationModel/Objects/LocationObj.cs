@@ -8,8 +8,9 @@ using System.Collections.Specialized;
 using WebAnnotationModel;
 using WebAnnotationModel.Objects; 
 using WebAnnotationModel.Service;
-using System.Data.Entity.Spatial;
 using SqlGeometryUtils;
+using System.Data.Entity.Spatial;
+using AnnotationService.Types;
 
 using Geometry; 
 
@@ -22,9 +23,11 @@ namespace WebAnnotationModel
         CIRCLE = 1,
         ELLIPSE = 2,
         POLYLINE = 3,
-        POLYGON = 4,
-        OPENCURVE = 5,
-        CLOSEDCURVE = 6
+        POLYGON = 4,     //Polygon, no smoothing of exterior verticies with curve fitting
+        OPENCURVE = 5,   //Line segments with a line width, additional control points created using curve fitting function
+        CURVEPOLYGON = 6, //Polygon whose outer and inner verticies are supplimented with a curve fitting function
+        CLOSEDCURVE = 7 //Ring of line segments with a line width
+        
     };
 
     public class LocationObj : WCFObjBaseWithKey<long, Location>
@@ -63,6 +66,8 @@ namespace WebAnnotationModel
                 case "MosaicShape":
                     return true;
                 case "Radius":
+                    return true;
+                case "Width":
                     return true;
                 default:
                     return false;
@@ -156,7 +161,7 @@ namespace WebAnnotationModel
 
                 if (!_MosaicPosition.HasValue)
                 {
-                    _MosaicPosition = this.MosaicShape.Centroid();
+                    _MosaicPosition = CenterOfLocationShape(this.TypeCode, this.MosaicShape);
                     //_MosaicPosition = new GridVector2(Data.Position.X, Data.Position.Y);
                 }
                 /*
@@ -205,7 +210,8 @@ namespace WebAnnotationModel
 
                 if (!_VolumePosition.HasValue)
                 {
-                    _VolumePosition = Data.VolumeShape.Centroid();
+                    _VolumePosition = CenterOfLocationShape(this.TypeCode, this.VolumeShape);
+                    //_VolumePosition = Data.VolumeShape.Centroid();
                     //_VolumePosition = new GridVector2(Data.VolumePosition.X, Data.VolumePosition.Y);
                 }
                 /*
@@ -236,6 +242,20 @@ namespace WebAnnotationModel
             
         }
 
+        private static GridVector2 CenterOfLocationShape(LocationType type, Microsoft.SqlServer.Types.SqlGeometry shape)
+        {
+            switch (type)
+            {
+                case LocationType.POINT:
+                case LocationType.CIRCLE:
+                case LocationType.ELLIPSE:
+                    return shape.BoundingBox().Center;
+                default:
+                    return shape.Centroid();
+            }
+
+        }
+
         /// <summary>
         /// This is readonly because changing it would break a datastructure in location store
         /// and also would require update of X,Y to the section space of the different section
@@ -250,9 +270,10 @@ namespace WebAnnotationModel
         {
             get
             {
-                if (_VolumeShape == null && Data.VolumeShape != null)
+                if (_VolumeShape == null && Data.VolumeShapeWKB != null)
                 {
-                    _VolumeShape = Data.VolumeShape.ToSqlGeometry();
+                    //_VolumeShape = Data.VolumeShape.ToSqlGeometry();
+                    _VolumeShape = Data.VolumeShapeWKB.ToSqlGeometry();
                 }
                 return _VolumeShape;
             }
@@ -262,8 +283,8 @@ namespace WebAnnotationModel
                 if (value == null)
                     return;
 
-                DbGeometry newValue = value.ToDbGeometry();
-                if (Data.VolumeShape != null && Data.VolumeShape.SpatialEquals(newValue)) return;
+//                DbGeometry newValue = value.ToDbGeometry();
+                if (VolumeShape != null && VolumeShape.SpatialEquals(value)) return;
 
                 OnPropertyChanging("VolumeShape");
 
@@ -271,7 +292,8 @@ namespace WebAnnotationModel
                 _VolumePosition = value.Centroid();
                 OnPropertyChanged("VolumePosition");
 
-                Data.VolumeShape = newValue;
+                //Data.VolumeShape = newValue;
+                Data.VolumeShapeWKB = value.AsBinary();
                 _VolumeShape = value;
                 OnPropertyChanged("VolumeShape");
 
@@ -285,9 +307,9 @@ namespace WebAnnotationModel
         {
             get
             {
-                if (_MosaicShape == null)
+                if (_MosaicShape == null && Data.MosaicShapeWKB != null)
                 {
-                    _MosaicShape = Data.MosaicShape.ToSqlGeometry();
+                    _MosaicShape = Data.MosaicShapeWKB.ToSqlGeometry();
                 }
                 return _MosaicShape;
             }
@@ -297,8 +319,8 @@ namespace WebAnnotationModel
                 if (value == null)
                     return;
 
-                DbGeometry newValue = value.ToDbGeometry();
-                if (Data.MosaicShape != null && Data.MosaicShape.SpatialEquals(newValue)) return;
+                //DbGeometry newValue = value.ToDbGeometry();
+                if (MosaicShape != null && MosaicShape.SpatialEquals(value)) return;
 
                 OnPropertyChanging("MosaicShape");
 
@@ -306,12 +328,13 @@ namespace WebAnnotationModel
                 _MosaicPosition = value.Centroid();
                 OnPropertyChanged("Position");
 
-                Data.MosaicShape = newValue;
+                //Data.MosaicShape = newValue;
+                Data.MosaicShapeWKB = value.AsBinary();
                 _MosaicShape = null;
                 OnPropertyChanged("MosaicShape");
 
                 OnPropertyChanging("Radius");
-                _Radius = CalculateRadius(newValue);
+                _Radius = CalculateRadius(value);
                 OnPropertyChanged("Radius");
 
                 SetDBActionForChange();
@@ -355,7 +378,7 @@ namespace WebAnnotationModel
                 return this.Width.Value / 2.0;
         }
 
-        private double CalculateRadius(DbGeometry shape)
+        private double CalculateRadius(System.Data.Entity.Spatial.DbGeometry shape)
         {
             if (shape.Dimension == 1)
             {
@@ -703,20 +726,13 @@ namespace WebAnnotationModel
         /// Add the specified name to the attributes if it does not exists, removes it 
         /// </summary>
         /// <param name="tag"></param>
-        public void ToggleAttribute(string tag)
+        public bool ToggleAttribute(string tag, string value=null)
         {
-            ObjAttribute attrib = new ObjAttribute(tag, null);
+            ObjAttribute attrib = new ObjAttribute(tag, value);
             List<ObjAttribute> listAttributes = this.Attributes.ToList();
-            if (listAttributes.Contains(attrib))
-            {
-                listAttributes.Remove(attrib);
-            }
-            else
-            {
-                listAttributes.Add(attrib);
-            }
-
+            bool InList = listAttributes.ToggleAttribute(tag, value);
             this.Attributes = listAttributes;
+            return InList; 
         }
 
         public LocationObj()
@@ -736,7 +752,13 @@ namespace WebAnnotationModel
             this.Data.DBAction = DBACTION.INSERT;
             this.Data.ID = Store.Locations.GetTempKey();
             this.Data.TypeCode = (short)shapeType;
-            this.Data.Radius = 16;
+
+            if(shapeType == LocationType.CIRCLE)
+                this.Data.Radius = 16;
+
+            if (shapeType == LocationType.POINT)
+                this.Data.Radius = 16;
+
             this.Data.Links = null;
 
             //this.Data.MosaicShape = mosaicShape.ToDbGeometry();
@@ -756,9 +778,13 @@ namespace WebAnnotationModel
                             Microsoft.SqlServer.Types.SqlGeometry mosaicShape, Microsoft.SqlServer.Types.SqlGeometry volumeShape,
                            int SectionNumber, LocationType shapeType) : this(parent, SectionNumber, shapeType)
         {
-            this.Data.MosaicShape = mosaicShape.ToDbGeometry();
-            this.Data.VolumeShape = volumeShape.ToDbGeometry();
+            //this.Data.MosaicShape = mosaicShape.ToDbGeometry();
+            //this.Data.VolumeShape = volumeShape.ToDbGeometry();
+
+            this.Data.MosaicShapeWKB = mosaicShape.AsBinary();
+            this.Data.VolumeShapeWKB = volumeShape.AsBinary();
         }
+
 
         /// <summary>
         /// Override and write each property individually so we send specific property changed events
@@ -781,8 +807,8 @@ namespace WebAnnotationModel
             this.Data.LastModified = newdata.LastModified;
             this.Data.Links = newdata.Links;
             this._Attributes = null;
-            this.Data.VolumeShape = newdata.VolumeShape;
-            this.Data.MosaicShape = newdata.MosaicShape;
+            this.Data.VolumeShapeWKB = newdata.VolumeShapeWKB;
+            this.Data.MosaicShapeWKB = newdata.MosaicShapeWKB;
         }
         
 

@@ -18,15 +18,15 @@ namespace Geometry.Transforms
         public MappingGridVector2[] newPoints;
 
         readonly int[] iPoints; 
-        readonly TriangulationTransform warpingTransform;
-        readonly TriangulationTransform fixedTransform;
+        readonly IControlPointTriangulation warpingTransform;
+        readonly ITransform fixedTransform;
 
         /// <summary>
         /// This is set to true if every original point was transformed successfully
         /// </summary>
         public bool AllPointsTransformed = true;
 
-        public AddTransformThreadObj(int[] iMapPoints, TriangulationTransform warpingT, TriangulationTransform fixedT)
+        public AddTransformThreadObj(int[] iMapPoints, IControlPointTriangulation warpingT, ITransform fixedT)
         {
             this.iPoints = iMapPoints; 
             this.warpingTransform = warpingT;
@@ -34,24 +34,31 @@ namespace Geometry.Transforms
         }
 
         public void ThreadPoolCallback(Object threadContext)
-        {
-            List<MappingGridVector2> newPointsList = new List<MappingGridVector2>(iPoints.Length); 
+        { 
+            GridVector2[] MappedControlPoints;
 
-            foreach(int iPoint in iPoints)
+            bool[] mapped = fixedTransform.TryTransform(warpingTransform.MapPoints.Select(p => p.ControlPoint).ToArray(), out MappedControlPoints);
+
+            List<MappingGridVector2> newPointsList = MappedControlPoints.Where((p, i) => mapped[i]).Select((cp, i) => new MappingGridVector2(cp, warpingTransform.MapPoints[i].MappedPoint)).ToList();
+             
+            if (!mapped.All(m => m))
             {
-                MappingGridVector2 UnmappedPoint = warpingTransform.MapPoints[iPoint]; 
-                GridVector2 newControl;
-                bool TransformSuccess = fixedTransform.TryTransform(UnmappedPoint.ControlPoint, out newControl);
-                if (TransformSuccess)
+                //Prepare to remove unmappable points
+                IDiscreteTransform discreteFixedTransform = fixedTransform as IDiscreteTransform;
+
+                //OK, cleanup all of the points that could not be mapped
+                foreach (int iPoint in iPoints)
                 {
-                    newPointsList.Add( new MappingGridVector2(newControl, UnmappedPoint.MappedPoint) );
-                }
-                else
-                {
-                    this.AllPointsTransformed = false; 
-                    //In this case we need to test each edge connecting this point to other points.
+                    if (mapped[iPoint])
+                        continue;
+
+                    //If we could not map a point we need to test each edge connecting this point to other points to see if the edge intersects the fixed transform boundaries
+                    MappingGridVector2 UnmappedPoint = warpingTransform.MapPoints[iPoint];
+
+                    this.AllPointsTransformed = false;
+
                     List<int> MovingEdgeIndicies = warpingTransform.Edges[iPoint];
-                    
+
                     //Find out which of these edge points intersect triangles in the fixed warp.  If they are inside the control warp
                     //triangle mesh we find the point where the edge intersects the fixed warp mesh.
                     for (int iEdge = 0; iEdge < MovingEdgeIndicies.Count; iEdge++)
@@ -66,13 +73,12 @@ namespace Geometry.Transforms
                         GridVector2 intersect;
 
                         //Find out if there is a line in the fixed transform we intersect with. 
-                        double distance = fixedTransform.ConvexHullIntersection(ctrlLine, UnmappedPoint.ControlPoint, out foundCtrlLine, out foundMapLine, out intersect);
+                        double distance = discreteFixedTransform.ConvexHullIntersection(ctrlLine, UnmappedPoint.ControlPoint, out foundCtrlLine, out foundMapLine, out intersect);
                         if (distance == double.MaxValue)
                             continue;
 
-                        if (fixedTransform.GetTransform(this.warpingTransform.MapPoints[iEdgePoint].ControlPoint) == null)
+                        if (false == discreteFixedTransform.CanTransform(this.warpingTransform.MapPoints[iEdgePoint].ControlPoint))
                             continue;
-
 
                         //Translate from the fixed transform map space into control space. 
                         GridVector2 newCtrlPoint;
@@ -113,9 +119,9 @@ namespace Geometry.Transforms
 
                         newPointsList.Add(new MappingGridVector2(newCtrlPoint, newMapPoint));
                     }
-                     
                 }
             }
+            
 
             MappingGridVector2.RemoveDuplicates(newPointsList);
             newPoints = newPointsList.ToArray(); 

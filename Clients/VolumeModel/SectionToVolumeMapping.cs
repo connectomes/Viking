@@ -29,7 +29,7 @@ namespace Viking.VolumeModel
             get { return -1; }
         }
 
-        public override ReferencePointBasedTransform[] TileTransforms
+        public override ITransform[] TileTransforms
         {
             get
             {
@@ -156,43 +156,53 @@ namespace Viking.VolumeModel
                 {
                     this.HasBeenWarped = true;
                     return; 
-                }  
+                }
 
                 // Get the transform tiles from the source mapping, which loads the .mosaic if it hasn't alredy been loaded
-                ReferencePointBasedTransform[] volTransforms = SourceMapping.TileTransforms;
+                ITransform[] volTransforms = SourceMapping.TileTransforms;
 
                 // We add transforms which surivive addition with at least three points to this list
-                List<TriangulationTransform> listTiles = new List<TriangulationTransform>(volTransforms.Length);
+                List<ITransform> listTiles = new List<ITransform>(volTransforms.Length);
 
                 for (int i = 0; i < volTransforms.Length; i++)
                 {
-                    TriangulationTransform T = volTransforms[i] as TriangulationTransform;
+                    IControlPointTriangulation T = volTransforms[i] as IControlPointTriangulation;
                     //TriangulationTransform copy = (TriangulationTransform)T.Copy();
-                    TriangulationTransform newTransform = null; // = (TriangulationTransform)T.Copy();
+                    ITransform newTransform = null; // = (TriangulationTransform)T.Copy();
 
 
-                    if (VolumeTransform != null)
+                    if (VolumeTransform != null && T != null)
                     {
                         
-                        TileTransformInfo originalInfo = T.Info as TileTransformInfo;
+                        TileTransformInfo originalInfo = ((ITransformInfo)T).Info as TileTransformInfo;
                         TileTransformInfo info = new TileTransformInfo(originalInfo.TileFileName,
                                                                        originalInfo.TileNumber,
                                                                        originalInfo.LastModified < VolumeTransformInfo.LastModified ? originalInfo.LastModified : VolumeTransformInfo.LastModified,
                                                                        originalInfo.ImageWidth, 
                                                                        originalInfo.ImageHeight);
                         //FIXME
-                        newTransform = TriangulationTransform.Transform(this.VolumeTransform as TriangulationTransform, T, info);
+                        newTransform = TriangulationTransform.Transform(this.VolumeTransform, T, info);
                     }
 
                     if (newTransform == null)
-                        continue; 
+                        continue;
 
                     //Don't include the tile if the mapped version doesn't have any triangles
-                    if (newTransform.MapPoints.Length > 2)
-                        listTiles.Add(newTransform);
+                    if (newTransform as IControlPointTriangulation != null)
+                    {
+                        if (((IControlPointTriangulation)newTransform).MapPoints.Length > 2)
+                            listTiles.Add(newTransform);
+                    }
 
-                    T.MinimizeMemory();
-                    newTransform.MinimizeMemory();
+                    if (T as TriangulationTransform != null)
+                    {
+                        ((TriangulationTransform)T).MinimizeMemory();
+                    }
+
+                    if (newTransform as TriangulationTransform != null)
+                    {
+                        ((TriangulationTransform)newTransform).MinimizeMemory();
+                    }
                 }
 
                 //OK, overwrite the tiles in our class
@@ -263,7 +273,7 @@ namespace Viking.VolumeModel
             {
                 GridQuad VisibleQuad = null;
                 //Add any corners of the VisibleBounds that we can transform to the list of points
-                List<MappingGridVector2> VisiblePoints = VisibleBoundsCorners(VolumeTransform, VisibleBounds);
+                List<MappingGridVector2> VisiblePoints = VisibleBoundsCorners(VisibleBounds);
                 if (VisiblePoints.Count == 4)
                 {
                     VisiblePoints.Sort(new MappingGridVector2SortByMapPoints());

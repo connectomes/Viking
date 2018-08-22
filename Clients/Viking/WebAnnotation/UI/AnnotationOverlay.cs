@@ -21,6 +21,8 @@ using SqlGeometryUtils;
 using VikingXNAGraphics;
 using WebAnnotation.Actions;
 using System.ComponentModel;
+using VikingXNAWinForms;
+using Viking.VolumeModel;
 
 namespace WebAnnotation
 {
@@ -72,6 +74,13 @@ namespace WebAnnotation
 
             //    AnnotationCache.AnnotationChanged += AnnotationChangedEventHandler;      
             _CurrentOverlay = this;
+        }
+
+        public void InvalidateParent()
+        {
+            //Invalidate can always be called from any thread
+            if (Parent.IsHandleCreated)
+                Parent.BeginInvoke(new System.Action(() => Parent.Invalidate()));
         }
 
         string Viking.Common.ISectionOverlayExtension.Name()
@@ -133,7 +142,7 @@ namespace WebAnnotation
                 return; 
 
             //Adjust downsample so the location fits nicely in the view
-            double downsample = (loc.MosaicShape.Envelope().Width / Viking.UI.State.ViewerForm.Width) * Global.DefaultLocationJumpDownsample; 
+            double downsample = (loc.MosaicShape.BoundingBox().Width / Viking.UI.State.ViewerForm.Width) * Global.DefaultLocationJumpDownsample; 
 
             //SectionViewerForm.Show(section);
             Viking.UI.State.ViewerForm.GoToLocation(new Microsoft.Xna.Framework.Vector2((float)loc.Position.X, (float)loc.Position.Y), (int)loc.Z, true, downsample);
@@ -141,7 +150,7 @@ namespace WebAnnotation
             //BUG: This is because the way I handle commands changed dramatically between Plantmap and Viking.  I need to
             //set selected object to null to keep the UI from doing strange things
             Viking.UI.State.SelectedObject = null;
-            CreateNewLinkedLocationCommand.LastEditedLocation = null;
+            Global.LastEditedAnnotationID = null;
         }
 
         public int CurrentSectionNumber
@@ -201,8 +210,9 @@ namespace WebAnnotation
             }
 
             return null; 
-        } 
-        
+        }
+
+
         
 
         public SectionAnnotationsView CurrentSectionAnnotations
@@ -394,8 +404,8 @@ namespace WebAnnotation
             if (NextMouseOverObject != LastMouseOverObject)
             {
                 mouseOverEffect.viewObj = NextMouseOverObject;
-                
-                Parent.Invalidate();
+
+                InvalidateParent();
             }   
 
             LastMouseOverObject = NextMouseOverObject;
@@ -517,7 +527,7 @@ namespace WebAnnotation
             {
                 //Refresh the annotations on F5
                 case Keys.F5:
-                    LoadSectionAnnotations();
+                    ResetAnnotationsAsync();
                     return;
                 case Keys.F3:
                     OnContinueLastTrace();
@@ -526,13 +536,14 @@ namespace WebAnnotation
                     OnContinueLastTrace();
                     return; 
                 case Keys.Back:
-                    if (CreateNewLinkedLocationCommand.LastEditedLocation != null)
+                    if (Global.LastEditedAnnotationID.HasValue)
                     {
-                        Parent.GoToLocation(new Microsoft.Xna.Framework.Vector2((float)CreateNewLinkedLocationCommand.LastEditedLocation.Position.X,
-                                                                                (float)CreateNewLinkedLocationCommand.LastEditedLocation.Position.Y),
-                                            (int)CreateNewLinkedLocationCommand.LastEditedLocation.Z,
+                        LocationObj loc = Store.Locations.GetObjectByID(Global.LastEditedAnnotationID.Value);
+                        Parent.GoToLocation(new Microsoft.Xna.Framework.Vector2((float)loc.Position.X,
+                                                                                (float)loc.Position.Y),
+                                            (int)loc.Z,
                                             true,
-                                            (double)((CreateNewLinkedLocationCommand.LastEditedLocation.Width) / Parent.Width) * 2); 
+                                            (double)((loc.VolumeShape.BoundingBox().Width) / Parent.Width) * 2);
 
                     }
                     else
@@ -596,7 +607,7 @@ namespace WebAnnotation
                         ToggleStructureTagCommandAction tagStructureAction = Global.UserSettings.Actions.ToggleStructureTagCommandAction.Where(action => action.Name == h.Action).SingleOrDefault();
                         if (tagStructureAction != null)
                         {
-                            OnToggleStructureTag(tagStructureAction.Tag);
+                            OnToggleStructureTag(tagStructureAction.Tag, tagStructureAction.SetValueToUsername);
 
                             return;
                         }
@@ -604,7 +615,7 @@ namespace WebAnnotation
                         ToggleLocationTagCommandAction tagLocationAction = Global.UserSettings.Actions.ToggleLocationTagCommandAction.Where(action => action.Name == h.Action).SingleOrDefault();
                         if (tagLocationAction != null)
                         {
-                            OnToggleLocationTag(tagLocationAction.Tag);
+                            OnToggleLocationTag(tagLocationAction.Tag, tagStructureAction.SetValueToUsername);
 
                             return;
                         }
@@ -674,7 +685,7 @@ namespace WebAnnotation
 
                     //Only load the annotations for any section once so we can't fire multiple requests by pounding the spacebar
                     LoadSectionAnnotations();
-                    this._Parent.Invalidate();
+                    InvalidateParent();
 
                     break;
                 case Keys.ControlKey:
@@ -725,12 +736,15 @@ namespace WebAnnotation
                         break;
                     case LocationType.OPENCURVE:
                         newLocation.Width = 8.0;
-                        QueuePlacementCommandForOpenCurveStructure(this.Parent, newLocation, WorldPos, type.Color.SetAlpha(0.5f), false);
+                        QueuePlacementCommandForOpenCurveStructure(this.Parent, newLocation, WorldPos, type.Color.SetAlpha(0.5f), LocationType.OPENCURVE, false);
                         break;
                     case LocationType.CLOSEDCURVE:
                         newLocation.Width = 8.0;
-                        QueuePlacementCommandForClosedCurveStructure(this.Parent, newLocation, WorldPos, type.Color.SetAlpha(0.5f), false);
+                        QueuePlacementCommandForClosedCurveStructure(this.Parent, newLocation, WorldPos, type.Color.SetAlpha(0.5f), AnnotationType, false);
                         break;
+                    case LocationType.CURVEPOLYGON:
+                        QueuePlacementCommandForPolygonStructure(this.Parent, newLocation, WorldPos, type.Color.SetAlpha(0.5f), AnnotationType, false);
+                        break; 
                     default:
                         Trace.WriteLine("Could not find commands for annotation type: " + AnnotationType.ToString());
                         return;
@@ -756,11 +770,11 @@ namespace WebAnnotation
                     new ResizeCircleCommand.OnCommandSuccess((double radius) => {
                                     
                                     newLocation.TypeCode = LocationType.CIRCLE;
-                                    newLocation.MosaicShape = SqlGeometryUtils.GeometryExtensions.ToCircle(sectionPos.X,
+                                    newLocation.MosaicShape = SqlGeometryUtils.Extensions.ToCircle(sectionPos.X,
                                        sectionPos.Y,
                                        newLocation.Section,
                                        radius);
-                                    newLocation.VolumeShape = SqlGeometryUtils.GeometryExtensions.ToCircle(worldPos.X,
+                                    newLocation.VolumeShape = SqlGeometryUtils.Extensions.ToCircle(worldPos.X,
                                         worldPos.Y,
                                         newLocation.Section,
                                         radius);
@@ -771,76 +785,46 @@ namespace WebAnnotation
                                      })});
         }
 
-        public static void QueuePlacementCommandForOpenCurveStructure(Viking.UI.Controls.SectionViewerControl Parent, LocationObj newLocation, GridVector2 origin, System.Drawing.Color typecolor, bool SaveToStore)
+        public static void QueuePlacementCommandForOpenCurveStructure(Viking.UI.Controls.SectionViewerControl Parent, LocationObj newLocation, GridVector2 origin, System.Drawing.Color typecolor, LocationType typecode, bool SaveToStore)
         {
-            /*
-            public PlaceOpenCurveCommand(Viking.UI.Controls.SectionViewerControl parent,
-                                        Microsoft.Xna.Framework.Color color,
-                                        GridVector2 origin,
-                                        double LineWidth,
-                                        OnCommandSuccess success_callback)
-                                        */
             double LineWidth = 16.0;
             Viking.UI.Commands.Command.EnqueueCommand(typeof(PlaceOpenCurveCommand), new object[] { Parent, typecolor, origin,  LineWidth,
                                                             new ControlPointCommandBase.OnCommandSuccess((GridVector2[] points) => {
-                                                                    newLocation.TypeCode = LocationType.OPENCURVE;
+                                                                    newLocation.TypeCode = typecode;
                                                                     newLocation.Width = LineWidth;
-                                                                    SetLocationShapeFromPointsInVolume(Parent.Section, newLocation, points);
+                                                                    newLocation.SetShapeFromPointsInVolume(Parent.Section.ActiveSectionToVolumeTransform, points, null);
                                                                     if(SaveToStore)
                                                                         Store.Locations.Save();
                                                             }) });
         }
 
-        public static void QueuePlacementCommandForClosedCurveStructure(Viking.UI.Controls.SectionViewerControl Parent, LocationObj newLocation, GridVector2 origin, System.Drawing.Color typecolor, bool SaveToStore)
+        public static void QueuePlacementCommandForClosedCurveStructure(Viking.UI.Controls.SectionViewerControl Parent, LocationObj newLocation, GridVector2 origin, System.Drawing.Color typecolor, LocationType typecode, bool SaveToStore)
         {
-            /*
-            public PlaceOpenCurveCommand(Viking.UI.Controls.SectionViewerControl parent,
-                                        Microsoft.Xna.Framework.Color color,
-                                        GridVector2 origin,
-                                        double LineWidth,
-                                        OnCommandSuccess success_callback)
-                                        */
             double LineWidth = 16.0; 
             Viking.UI.Commands.Command.EnqueueCommand(typeof(PlaceClosedCurveCommand), new object[] { Parent, typecolor, origin, LineWidth,
                                                             new ControlPointCommandBase.OnCommandSuccess((GridVector2[] points) => {
-                                                                    newLocation.TypeCode = LocationType.CLOSEDCURVE;
+                                                                    newLocation.TypeCode = typecode;
                                                                     newLocation.Width = LineWidth;
-                                                                    SetLocationShapeFromPointsInVolume(Parent.Section, newLocation, points);
+                                                                    newLocation.SetShapeFromPointsInVolume(Parent.Section.ActiveSectionToVolumeTransform, points, null);
                                                                     if(SaveToStore)
                                                                         Store.Locations.Save();
                                                             }) });
         }
 
-        public static void SetLocationShapeFromPointsInVolume(SectionViewModel Section, LocationObj location, GridVector2[] points)
+        public static void QueuePlacementCommandForPolygonStructure(Viking.UI.Controls.SectionViewerControl Parent, LocationObj newLocation, GridVector2 origin, System.Drawing.Color typecolor, LocationType typecode, bool SaveToStore)
         {
-            GridVector2[] mosaic_points = Section.ActiveSectionToVolumeTransform.VolumeToSection(points);
-
-            switch (location.TypeCode)
-            {
-                case LocationType.CIRCLE:
-                    location.MosaicShape = mosaic_points.ToCircle();
-                    location.VolumeShape = points.ToCircle();
-                    break;
-                case LocationType.OPENCURVE:
-                    location.MosaicShape = mosaic_points.ToPolyLine();
-                    location.VolumeShape = CurveViewControlPoints.CalculateCurvePoints(points, Global.NumOpenCurveInterpolationPoints, false).ToArray().ToPolyLine();
-                    break;
-                case LocationType.POLYLINE:
-                    location.MosaicShape = mosaic_points.ToPolyLine();
-                    location.VolumeShape = points.ToPolyLine();
-                    break;
-                case LocationType.POLYGON:
-                    location.MosaicShape = mosaic_points.ToPolygon();
-                    location.VolumeShape = points.ToPolygon();
-                    break;
-                case LocationType.CLOSEDCURVE:
-                    location.MosaicShape = mosaic_points.ToPolygon(); 
-                    location.VolumeShape = CurveViewControlPoints.CalculateCurvePoints(points, Global.NumClosedCurveInterpolationPoints, true).ToArray().ToPolygon();
-                    break;
-            }
+            double LineWidth = 16.0;
+            Viking.UI.Commands.Command.EnqueueCommand(typeof(PlaceClosedCurveCommand), new object[] { Parent, typecolor, origin, LineWidth,
+                                                            new ControlPointCommandBase.OnCommandSuccess((GridVector2[] points) => {
+                                                                    newLocation.TypeCode = typecode; 
+                                                                    newLocation.SetShapeFromPointsInVolume(Parent.Section.ActiveSectionToVolumeTransform, points, null);
+                                                                    if(SaveToStore)
+                                                                        Store.Locations.Save();
+                                                            }) });
         }
+         
 
-        protected void OnToggleStructureTag(string tag)
+        protected void OnToggleStructureTag(string tag, bool SetValueToUsername)
         {
             if(LastMouseOverObject == null)
             {
@@ -855,12 +839,12 @@ namespace WebAnnotation
                 return;
             }
                
-            Viking.UI.Commands.Command.EnqueueCommand(typeof(ToggleStructureTag), new object[] { this.Parent, Store.Structures[loc.ParentID.Value], tag});
+            Viking.UI.Commands.Command.EnqueueCommand(typeof(ToggleStructureTag), new object[] { this.Parent, Store.Structures[loc.ParentID.Value], tag, SetValueToUsername });
 
             return; 
         }
 
-        protected void OnToggleLocationTag(string tag)
+        protected void OnToggleLocationTag(string tag, bool SetValueToUsername)
         {
             if (LastMouseOverObject == null)
             {
@@ -875,7 +859,7 @@ namespace WebAnnotation
                 return;
             }
 
-            Viking.UI.Commands.Command.EnqueueCommand(typeof(ToggleLocationTag), new object[] { this.Parent, Store.Locations[loc.ID], tag });
+            Viking.UI.Commands.Command.EnqueueCommand(typeof(ToggleLocationTag), new object[] { this.Parent, Store.Locations[loc.ID], tag, SetValueToUsername });
 
             return;
         }
@@ -917,6 +901,12 @@ namespace WebAnnotation
                 return;
             }
 
+            if(loc.Z != this.CurrentSectionNumber)
+            {
+                Trace.WriteLine("Mouse over object on incorrect section to convert type");
+                return;
+            }
+
             GridVector2 SectionPos;
             bool success = Parent.Section.ActiveSectionToVolumeTransform.TryVolumeToSection(LastMouseMoveVolumeCoords, out SectionPos);
             Debug.Assert(success);
@@ -929,10 +919,14 @@ namespace WebAnnotation
                     QueuePlacementCommandForCircleStructure(Parent, Store.Locations[loc.ID], LastMouseMoveVolumeCoords, SectionPos, loc.Parent.Type.Color, true);
                     break;
                 case LocationType.OPENCURVE: 
-                    QueuePlacementCommandForOpenCurveStructure(Parent, Store.Locations[loc.ID], LastMouseMoveVolumeCoords, loc.Parent.Type.Color, true);
+                    QueuePlacementCommandForOpenCurveStructure(Parent, Store.Locations[loc.ID], LastMouseMoveVolumeCoords, loc.Parent.Type.Color, newLocType, true);
                     break;
-                case LocationType.CLOSEDCURVE: 
-                    QueuePlacementCommandForClosedCurveStructure(Parent, Store.Locations[loc.ID], LastMouseMoveVolumeCoords, loc.Parent.Type.Color, true);
+                case LocationType.CLOSEDCURVE:
+                    QueuePlacementCommandForClosedCurveStructure(Parent, Store.Locations[loc.ID], LastMouseMoveVolumeCoords, loc.Parent.Type.Color, LocationType.CLOSEDCURVE, true);
+                    break;
+                case LocationType.CURVEPOLYGON:
+                    //TODO: Update the hotkeys at publish so we don't hardcode CURVEPOLYGON
+                    QueuePlacementCommandForPolygonStructure(Parent, Store.Locations[loc.ID], LastMouseMoveVolumeCoords, loc.Parent.Type.Color, LocationType.CURVEPOLYGON, true);
                     break; 
             }
         }
@@ -946,45 +940,23 @@ namespace WebAnnotation
 
         protected void OnContinueLastTrace(GridVector2 WorldPos)
         {
-            if (CreateNewLinkedLocationCommand.LastEditedLocation != null)
+            if (!Global.LastEditedAnnotationID.HasValue)
+                return;
+
+            LocationObj lastLoc = Store.Locations.GetObjectByID(Global.LastEditedAnnotationID.Value, true);
             {
-                if (CreateNewLinkedLocationCommand.LastEditedLocation.Z != this.CurrentSectionNumber && IsCommandDefault())
+                if (lastLoc.Z != this.CurrentSectionNumber && IsCommandDefault())
                 {
-                    Viking.UI.Commands.Command command = LocationAction.CREATELINKEDLOCATION.CreateCommand(this.Parent, CreateNewLinkedLocationCommand.LastEditedLocation, WorldPos);
+                    Viking.UI.Commands.Command command = LocationAction.CREATELINKEDLOCATION.CreateCommand(this.Parent, lastLoc, WorldPos);
                     if (command != null)
                     {
                         _Parent.CurrentCommand = command;
                     }
 
                     Viking.UI.State.SelectedObject = null;
-                    CreateNewLinkedLocationCommand.LastEditedLocation = null;
+                    LastMouseOverObject = null; 
+                    Global.LastEditedAnnotationID = null;
                 }
-                /*
-                LocationObj template = CreateNewLinkedLocationCommand.LastEditedLocation;
-                if (template.Z != this.Parent.Section.Number)
-                {
-                    GridVector2 SectionPos;
-                    bool success = Parent.Section.ActiveSectionToVolumeTransform.TryVolumeToSection(WorldPos, out SectionPos);
-                    Debug.Assert(success);
-                    if (!success)
-                        return;
-
-                    LocationObj newLoc = new LocationObj(CreateNewLinkedLocationCommand.LastEditedLocation.Parent,
-                                        Parent.Section.Number,
-                                        template.TypeCode);
-
-                    if (template.TypeCode == LocationType.CIRCLE)
-                    {
-                        LocationCircleView newLocView = new LocationCircleView(newLoc, Parent.Section.ActiveSectionToVolumeTransform);
-
-                        Viking.UI.Commands.Command.EnqueueCommand(typeof(ResizeCircleCommand), new object[] { Parent, template.Parent.Type.Color, WorldPos, new ResizeCircleCommand.OnCommandSuccess((double radius) => { newLoc.Radius = radius; }) });
-                        Viking.UI.Commands.Command.EnqueueCommand(typeof(CreateNewLinkedLocationCommand), new object[] { Parent, template, newLocView });
-                    }
-
-                    Viking.UI.State.SelectedObject = null;
-                    CreateNewLinkedLocationCommand.LastEditedLocation = null; 
-                }
-                */
             }
         }
 
@@ -1009,7 +981,7 @@ namespace WebAnnotation
         protected void OnAnnotationChanged(object sender, EventArgs e)
         {
             //Trigger redraw of screen
-            _Parent.Invalidate(); 
+            InvalidateParent();
         }
 
         private static SortedSet<int> ChangedSectionsInLocationCollection(NotifyCollectionChangedEventArgs e)
@@ -1146,9 +1118,9 @@ namespace WebAnnotation
                     }
                 }
             }
-            
+
             //Invalidate can always be called from any thread
-            Parent.BeginInvoke(new System.Action( () => Parent.Invalidate()));
+            InvalidateParent();
         }
 
         /// <summary>
@@ -1184,7 +1156,7 @@ namespace WebAnnotation
             if(e.ChangedSection.Number == this.CurrentSectionNumber)
                 LoadSectionAnnotations();
         }
-
+        
         /// <summary>
         /// When this occurs we should update the positions we draw the locations at. 
         /// </summary>
@@ -1192,9 +1164,7 @@ namespace WebAnnotation
         /// <param name="e"></param>
         public void OnSectionTransformChanged(object sender, TransformChangedEventArgs e)
         {
-            //AnnotationCache.TransformLocationsToVolume();
-            //AnnotationCache.PopulateLocationLinks(); 
-            LoadSectionAnnotations();
+            ResetAnnotationsAsync();
         }
 
         /// <summary>
@@ -1204,9 +1174,16 @@ namespace WebAnnotation
         /// <param name="e"></param>
         public void OnVolumeTransformChanged(object sender, TransformChangedEventArgs e)
         {
-            //AnnotationCache.TransformLocationsToVolume();
-            //AnnotationCache.PopulateLocationLinks(); 
-            LoadSectionAnnotations();
+            ResetAnnotationsAsync();
+        }
+
+        private void ResetAnnotationsAsync()
+        {
+            Task.Run(() =>
+            {
+                cacheSectionAnnotations.Clear();
+                LoadSectionAnnotations();
+            });
         }
 
         private GridRectangle LastVisibleWorldBounds;
@@ -1349,13 +1326,7 @@ namespace WebAnnotation
 
             basicEffect.SetScene(scene);
 
-            VikingXNA.AnnotationOverBackgroundLumaEffect overlayEffect = Parent.annotationOverlayEffect;
-
-            overlayEffect.LumaTexture = BackgroundLuma;
-            Parent.LumaOverlayLineManager.LumaTexture = BackgroundLuma; 
-
-            overlayEffect.RenderTargetSize = graphicsDevice.Viewport;
-            Parent.LumaOverlayLineManager.RenderTargetSize = graphicsDevice.Viewport;
+            VikingXNAGraphics.AnnotationOverBackgroundLumaEffect overlayEffect = Parent.AnnotationOverlayEffect;
             
             basicEffect.Alpha = 1;
             

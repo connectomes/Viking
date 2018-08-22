@@ -5,6 +5,7 @@ using System.Web;
 using System.Web.Mvc;
 using AnnotationVizLib;
 using GraphLib;
+using AnnotationVizLib.WCFClient;
 
 using VikingWebAppSettings;
 
@@ -43,7 +44,8 @@ namespace DataExport.Controllers
             string outputFilename = GetOutputFilename("dot");
             string userDotFileFullPath = System.IO.Path.Combine(userDotDirectory, outputFilename);
 
-            MotifGraph motifGraph = MotifGraph.BuildGraph(EndpointURL, AppSettings.EndpointCredentials);
+            MotifGraph motifGraph = WCFMotifFactory.BuildGraph(EndpointURL, AppSettings.EndpointCredentials);
+            motifGraph.AddEdgeStatistics();
             MotifDOTView DotGraph = MotifDOTView.ToDOT(motifGraph);
             DotGraph.SaveDOT(userDotFileFullPath);
 
@@ -64,7 +66,8 @@ namespace DataExport.Controllers
             string outputFilename = GetOutputFilename("tlp");
             string userDotFileFullPath = System.IO.Path.Combine(userDotDirectory, outputFilename);
              
-            MotifGraph motifGraph = MotifGraph.BuildGraph(EndpointURL, AppSettings.EndpointCredentials);
+            MotifGraph motifGraph = WCFMotifFactory.BuildGraph(EndpointURL, AppSettings.EndpointCredentials);
+            motifGraph.AddEdgeStatistics();
             MotifTLPView TlpGraph = MotifTLPView.ToTLP(motifGraph, VolumeURL);
             TlpGraph.SaveTLP(userDotFileFullPath);
 
@@ -85,7 +88,8 @@ namespace DataExport.Controllers
             string outputFilename = GetOutputFilename("json");
             string userJSONFullPath = System.IO.Path.Combine(userDotDirectory, outputFilename);
 
-            MotifGraph motifGraph = MotifGraph.BuildGraph(EndpointURL, AppSettings.EndpointCredentials);
+            MotifGraph motifGraph = WCFMotifFactory.BuildGraph(EndpointURL, AppSettings.EndpointCredentials);
+            motifGraph.AddEdgeStatistics();
             MotifJSONView JsonGraph = MotifJSONView.ToJSON(motifGraph);
             JsonGraph.SaveJSON(userJSONFullPath);
 

@@ -25,17 +25,18 @@
           <Property Name="Tags" Type="xml" />
           <Property Name="Terminal" Type="bit" Nullable="false" />
           <Property Name="OffEdge" Type="bit" Nullable="false" />
-          <Property Name="Radius" Type="float" Nullable="false" />
           <Property Name="TypeCode" Type="smallint" Nullable="false" />
           <Property Name="LastModified" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
           <Property Name="Created" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
-          <Property Name="Username" Type="nchar" MaxLength="16" Nullable="false" />
+          <Property Name="Username" Type="nvarchar" MaxLength="254" />
           <Property Name="MosaicShape" Type="geometry" Nullable="false" />
           <Property Name="VolumeShape" Type="geometry" Nullable="false" />
           <Property Name="X" Type="float" StoreGeneratedPattern="Computed" Nullable="false" />
           <Property Name="Y" Type="float" StoreGeneratedPattern="Computed" Nullable="false" />
           <Property Name="VolumeX" Type="float" StoreGeneratedPattern="Computed" Nullable="false" />
           <Property Name="VolumeY" Type="float" StoreGeneratedPattern="Computed" Nullable="false" />
+          <Property Name="Width" Type="float" />
+          <Property Name="Radius" Type="float" StoreGeneratedPattern="Computed" Nullable="false" />
         </EntityType>
         <EntityType Name="LocationLink">
           <Key>
@@ -44,8 +45,17 @@
           </Key>
           <Property Name="A" Type="bigint" Nullable="false" />
           <Property Name="B" Type="bigint" Nullable="false" />
-          <Property Name="Username" Type="nchar" MaxLength="16" Nullable="false" />
+          <Property Name="Username" Type="nvarchar" MaxLength="254" />
           <Property Name="Created" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
+        </EntityType>
+        <EntityType Name="PermittedStructureLink">
+          <Key>
+            <PropertyRef Name="SourceTypeID" />
+            <PropertyRef Name="TargetTypeID" />
+          </Key>
+          <Property Name="SourceTypeID" Type="bigint" Nullable="false" />
+          <Property Name="TargetTypeID" Type="bigint" Nullable="false" />
+          <Property Name="Bidirectional" Type="bit" Nullable="false" />
         </EntityType>
         <EntityType Name="Structure">
           <Key>
@@ -61,7 +71,7 @@
           <Property Name="ParentID" Type="bigint" />
           <Property Name="Created" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
           <Property Name="Label" Type="varchar" MaxLength="64" />
-          <Property Name="Username" Type="nchar" MaxLength="16" Nullable="false" />
+          <Property Name="Username" Type="nvarchar" MaxLength="254" />
           <Property Name="LastModified" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
         </EntityType>
         <!--Errors Found During Generation:
@@ -73,15 +83,28 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
             
             
             
-            
           </Key>
           <Property Name="SourceID" Type="bigint" Nullable="false" />
           <Property Name="TargetID" Type="bigint" Nullable="false" />
           <Property Name="Bidirectional" Type="bit" Nullable="false" />
           <Property Name="Tags" Type="xml" />
-          <Property Name="Username" Type="nchar" MaxLength="16" Nullable="false" />
+          <Property Name="Username" Type="nvarchar" MaxLength="254" />
           <Property Name="Created" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
           <Property Name="LastModified" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
+        </EntityType>
+        <EntityType Name="StructureSpatialCache">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="bigint" Nullable="false" />
+          <Property Name="BoundingRect" Type="geometry" Nullable="false" />
+          <Property Name="Area" Type="float" Nullable="false" />
+          <Property Name="Volume" Type="float" Nullable="false" />
+          <Property Name="MaxDimension" Type="int" Nullable="false" />
+          <Property Name="MinZ" Type="float" Nullable="false" />
+          <Property Name="MaxZ" Type="float" Nullable="false" />
+          <Property Name="ConvexHull" Type="geometry" />
+          <Property Name="LastModified" Type="datetime" Nullable="false" />
         </EntityType>
         <EntityType Name="StructureType">
           <Key>
@@ -99,10 +122,24 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Property Name="Version" Type="timestamp" StoreGeneratedPattern="Computed" Nullable="false" />
           <Property Name="Code" Type="nchar" MaxLength="16" Nullable="false" />
           <Property Name="HotKey" Type="char" MaxLength="1" Nullable="false" />
-          <Property Name="Username" Type="nchar" MaxLength="16" Nullable="false" />
+          <Property Name="Username" Type="nvarchar" MaxLength="254" />
           <Property Name="LastModified" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
           <Property Name="Created" Type="datetime" Nullable="false" StoreGeneratedPattern="Computed" />
         </EntityType>
+        <Association Name="FK__Structure__LastM__1F959DAB">
+          <End Role="Structure" Type="Self.Structure" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="StructureSpatialCache" Type="Self.StructureSpatialCache" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Structure">
+              <PropertyRef Name="ID" />
+            </Principal>
+            <Dependent Role="StructureSpatialCache">
+              <PropertyRef Name="ID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <Association Name="FK_Location_StructureBase1">
           <End Role="Structure" Type="Self.Structure" Multiplicity="1">
             <OnDelete Action="Cascade" />
@@ -138,6 +175,30 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
             </Principal>
             <Dependent Role="LocationLink">
               <PropertyRef Name="B" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PermittedStructureLink_SourceType">
+          <End Role="StructureType" Type="Self.StructureType" Multiplicity="1" />
+          <End Role="PermittedStructureLink" Type="Self.PermittedStructureLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="StructureType">
+              <PropertyRef Name="ID" />
+            </Principal>
+            <Dependent Role="PermittedStructureLink">
+              <PropertyRef Name="SourceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PermittedStructureLink_TargetType">
+          <End Role="StructureType" Type="Self.StructureType" Multiplicity="1" />
+          <End Role="PermittedStructureLink" Type="Self.PermittedStructureLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="StructureType">
+              <PropertyRef Name="ID" />
+            </Principal>
+            <Dependent Role="PermittedStructureLink">
+              <PropertyRef Name="TargetTypeID" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -213,6 +274,26 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Parameter Name="KeepStructureID" Type="bigint" Mode="In" />
           <Parameter Name="MergeStructureID" Type="bigint" Mode="In" />
         </Function>
+        <Function Name="NetworkChildStructureIDs" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+          <ReturnType>
+            <CollectionType>
+              <RowType>
+                <Property Name="ID" Type="bigint" Nullable="false" />
+              </RowType>
+            </CollectionType>
+          </ReturnType>
+        </Function>
+        <Function Name="NetworkStructureIDs" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+          <ReturnType>
+            <CollectionType>
+              <RowType>
+                <Property Name="ID" Type="bigint" Nullable="false" />
+              </RowType>
+            </CollectionType>
+          </ReturnType>
+        </Function>
         <Function Name="SectionLocationLinks" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
           <Parameter Name="Z" Type="float" Mode="In" />
           <ReturnType>
@@ -254,7 +335,6 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <Property Name="Tags" Type="xml" />
                 <Property Name="Terminal" Type="bit" Nullable="false" />
                 <Property Name="OffEdge" Type="bit" Nullable="false" />
-                <Property Name="Radius" Type="float" Nullable="false" />
                 <Property Name="TypeCode" Type="smallint" Nullable="false" />
                 <Property Name="LastModified" Type="datetime" Nullable="false" />
                 <Property Name="Created" Type="datetime" Nullable="false" />
@@ -265,6 +345,8 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <Property Name="Y" Type="float" Nullable="false" />
                 <Property Name="VolumeX" Type="float" Nullable="false" />
                 <Property Name="VolumeY" Type="float" Nullable="false" />
+                <Property Name="Width" Type="float" />
+                <Property Name="Radius" Type="float" />
               </RowType>
             </CollectionType>
           </ReturnType>
@@ -284,7 +366,6 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <Property Name="Tags" Type="xml" />
                 <Property Name="Terminal" Type="bit" Nullable="false" />
                 <Property Name="OffEdge" Type="bit" Nullable="false" />
-                <Property Name="Radius" Type="float" Nullable="false" />
                 <Property Name="TypeCode" Type="smallint" Nullable="false" />
                 <Property Name="LastModified" Type="datetime" Nullable="false" />
                 <Property Name="Created" Type="datetime" Nullable="false" />
@@ -295,6 +376,8 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <Property Name="Y" Type="float" Nullable="false" />
                 <Property Name="VolumeX" Type="float" Nullable="false" />
                 <Property Name="VolumeY" Type="float" Nullable="false" />
+                <Property Name="Width" Type="float" />
+                <Property Name="Radius" Type="float" />
               </RowType>
             </CollectionType>
           </ReturnType>
@@ -305,6 +388,21 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Parameter Name="StructureID" Type="bigint" Mode="In" />
         </Function>
         <Function Name="SelectLastModifiedLocationByUsers" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" />
+        <Function Name="SelectNetworkChildStructureIDs" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+        </Function>
+        <Function Name="SelectNetworkChildStructures" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+        </Function>
+        <Function Name="SelectNetworkChildStructureSpatialData" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+        </Function>
+        <Function Name="SelectNetworkStructureIDs" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+        </Function>
+        <Function Name="SelectNetworkStructureSpatialData" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+        </Function>
         <Function Name="SelectNumConnectionsPerStructure" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" />
         <Function Name="SelectRootStructures" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" />
         <Function Name="SelectSectionAnnotationsInMosaicBounds" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
@@ -419,6 +517,15 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
         <Function Name="SelectUnfinishedStructureBranchesWithPosition" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
           <Parameter Name="StructureID" Type="bigint" Mode="In" />
         </Function>
+        <Function Name="SplitStructure" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="LocationIDOfSplitStructure" Type="bigint" Mode="In" />
+          <Parameter Name="SplitStructureID" Type="bigint" Mode="InOut" />
+        </Function>
+        <Function Name="SplitStructureAtLocationLink" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="LocationIDOfKeepStructure" Type="bigint" Mode="In" />
+          <Parameter Name="LocationIDOfSplitStructure" Type="bigint" Mode="In" />
+          <Parameter Name="SplitStructureID" Type="bigint" Mode="InOut" />
+        </Function>
         <Function Name="StructureLocationLinks" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
           <Parameter Name="StructureID" Type="bigint" Mode="In" />
           <ReturnType>
@@ -432,21 +539,36 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
             </CollectionType>
           </ReturnType>
         </Function>
+        <Function Name="ufnLastNetworkModification" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="datetime">
+          <Parameter Name="Hops" Type="int" Mode="In" />
+        </Function>
+        <Function Name="ufnLastStructureMorphologyModification" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="datetime">
+          <Parameter Name="ID" Type="bigint" Mode="In" />
+        </Function>
+        <Function Name="ufnLastStructureMorphologyModificationRecursive" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="datetime">
+          <Parameter Name="ID" Type="bigint" Mode="In" />
+        </Function>
         <Function Name="UpdateStructureType" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
           <Parameter Name="StructureID" Type="bigint" Mode="In" />
           <Parameter Name="TypeID" Type="bigint" Mode="In" />
         </Function>
         <Function Name="XYScale" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="float" />
-        <Function Name="XYScaleUnits" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="varchar" />
+        <Function Name="XYScaleUnits" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="varchar(max)" />
         <Function Name="ZScale" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="float" />
-        <Function Name="ZScaleUnits" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="varchar" />
+        <Function Name="ZScaleUnits" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="true" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo" ReturnType="varchar(max)" />
         <EntityContainer Name="ConnectomeModelStoreContainer">
           <EntitySet Name="DeletedLocations" EntityType="Self.DeletedLocations" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Location" EntityType="Self.Location" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="LocationLink" EntityType="Self.LocationLink" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="PermittedStructureLink" EntityType="Self.PermittedStructureLink" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Structure" EntityType="Self.Structure" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="StructureSpatialCache" EntityType="Self.StructureSpatialCache" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="StructureType" EntityType="Self.StructureType" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="StructureLink" EntityType="Self.StructureLink" store:Type="Tables" Schema="dbo"/>
+          <AssociationSet Name="FK__Structure__LastM__1F959DAB" Association="Self.FK__Structure__LastM__1F959DAB">
+            <End Role="Structure" EntitySet="Structure" />
+            <End Role="StructureSpatialCache" EntitySet="StructureSpatialCache" />
+          </AssociationSet>
           <AssociationSet Name="FK_Location_StructureBase1" Association="Self.FK_Location_StructureBase1">
             <End Role="Structure" EntitySet="Structure" />
             <End Role="Location" EntitySet="Location" />
@@ -458,6 +580,14 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <AssociationSet Name="FK_LocationLink_Location1" Association="Self.FK_LocationLink_Location1">
             <End Role="Location" EntitySet="Location" />
             <End Role="LocationLink" EntitySet="LocationLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PermittedStructureLink_SourceType" Association="Self.FK_PermittedStructureLink_SourceType">
+            <End Role="StructureType" EntitySet="StructureType" />
+            <End Role="PermittedStructureLink" EntitySet="PermittedStructureLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PermittedStructureLink_TargetType" Association="Self.FK_PermittedStructureLink_TargetType">
+            <End Role="StructureType" EntitySet="StructureType" />
+            <End Role="PermittedStructureLink" EntitySet="PermittedStructureLink" />
           </AssociationSet>
           <AssociationSet Name="FK_Structure_Structure" Association="Self.FK_Structure_Structure">
             <End Role="Structure" EntitySet="Structure" />
@@ -508,16 +638,17 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Property Name="VolumeY" Type="Double" annotation:StoreGeneratedPattern="Computed" Nullable="false" />
           <Property Name="Terminal" Type="Boolean" Nullable="false" />
           <Property Name="OffEdge" Type="Boolean" Nullable="false" />
-          <Property Name="Radius" Type="Double" Nullable="false" />
+          <Property Name="Radius" Type="Double"  Nullable="false" annotation:StoreGeneratedPattern="Computed"/>
           <Property Name="TypeCode" Type="Int16" Nullable="false" />
           <Property Name="LastModified" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
           <Property Name="Created" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
-          <Property Name="Username" Type="String" MaxLength="16" FixedLength="true" Unicode="true" Nullable="false" />
-          <NavigationProperty Name="Structure" Relationship="Self.FK_Location_StructureBase1" FromRole="Location" ToRole="Structure" />
+          <Property Name="Username" Type="String" MaxLength="254" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="Parent" Relationship="Self.FK_Location_Structure" FromRole="Location" ToRole="Structure" />
           <NavigationProperty Name="LocationLinksA" Relationship="Self.FK_LocationLink_Location" FromRole="Location" ToRole="LocationLink" />
           <NavigationProperty Name="LocationLinksB" Relationship="Self.FK_LocationLink_Location1" FromRole="Location" ToRole="LocationLink" />
           <Property Name="MosaicShape" Type="Geometry" Nullable="false" />
           <Property Name="VolumeShape" Type="Geometry" Nullable="false" />
+          <Property Name="Width" Type="Double" />
         </EntityType>
         <EntityType Name="LocationLink">
           <Key>
@@ -526,7 +657,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           </Key>
           <Property Name="A" Type="Int64" Nullable="false" />
           <Property Name="B" Type="Int64" Nullable="false" />
-          <Property Name="Username" Type="String" MaxLength="16" FixedLength="true" Unicode="true" Nullable="false" />
+          <Property Name="Username" Type="String" MaxLength="254" FixedLength="false" Unicode="true" />
           <Property Name="Created" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
           <NavigationProperty Name="LocationA" Relationship="Self.FK_LocationLink_Location" FromRole="LocationLink" ToRole="Location" />
           <NavigationProperty Name="LocationB" Relationship="Self.FK_LocationLink_Location1" FromRole="LocationLink" ToRole="Location" />
@@ -545,14 +676,15 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Property Name="ParentID" Type="Int64" />
           <Property Name="Created" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
           <Property Name="Label" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
-          <Property Name="Username" Type="String" MaxLength="16" FixedLength="true" Unicode="true" Nullable="false" />
+          <Property Name="Username" Type="String" MaxLength="254" FixedLength="false" Unicode="true" />
           <Property Name="LastModified" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
-          <NavigationProperty Name="Locations" Relationship="Self.FK_Location_StructureBase1" FromRole="Structure" ToRole="Location" />
+          <NavigationProperty Name="Locations" Relationship="Self.FK_Location_Structure" FromRole="Structure" ToRole="Location" />
           <NavigationProperty Name="Children" Relationship="Self.FK_Structure_Structure" FromRole="Structure" ToRole="Structure1" />
           <NavigationProperty Name="Parent" Relationship="Self.FK_Structure_Structure" FromRole="Structure1" ToRole="Structure" />
           <NavigationProperty Name="Type" Relationship="Self.FK_StructureBase_StructureType" FromRole="Structure" ToRole="StructureType" />
           <NavigationProperty Name="SourceOfLinks" Relationship="Self.FK_StructureLinkSource_StructureBaseID" FromRole="Structure" ToRole="StructureLink" />
           <NavigationProperty Name="TargetOfLinks" Relationship="Self.FK_StructureLinkTarget_StructureBaseID" FromRole="Structure" ToRole="StructureLink" />
+          <NavigationProperty Name="StructureSpatialCache" Relationship="ConnectomeModel.FK__Structure__LastM__1F959DAB" FromRole="Structure" ToRole="StructureSpatialCache" />
         </EntityType>
         <EntityType Name="StructureType">
           <Key>
@@ -570,12 +702,14 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Property Name="Version" Type="Binary" MaxLength="8" FixedLength="true" Nullable="false" annotation:StoreGeneratedPattern="Computed" />
           <Property Name="Code" Type="String" MaxLength="16" FixedLength="true" Unicode="true" Nullable="false" />
           <Property Name="HotKey" Type="String" MaxLength="1" FixedLength="true" Unicode="false" Nullable="false" />
-          <Property Name="Username" Type="String" MaxLength="16" FixedLength="true" Unicode="true" Nullable="false" />
+          <Property Name="Username" Type="String" MaxLength="254" FixedLength="false" Unicode="true" />
           <Property Name="LastModified" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
           <Property Name="Created" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
           <NavigationProperty Name="Structures" Relationship="Self.FK_StructureBase_StructureType" FromRole="StructureType" ToRole="Structure" />
-          <NavigationProperty Name="Children" Relationship="Self.FK_StructureType_StructureType" FromRole="StructureType" ToRole="StructureType1" />
-          <NavigationProperty Name="Parent" Relationship="Self.FK_StructureType_StructureType" FromRole="StructureType1" ToRole="StructureType" />
+          <NavigationProperty Name="Children" Relationship="Self.FK_StructureType_StructureType" FromRole="StructureType" ToRole="ParentStructureType" />
+          <NavigationProperty Name="Parent" Relationship="Self.FK_StructureType_StructureType" FromRole="ParentStructureType" ToRole="StructureType" />
+          <NavigationProperty Name="SourceOfLinks" Relationship="ConnectomeModel.FK_PermittedStructureLink_SourceType1" FromRole="StructureType" ToRole="PermittedStructureLink" />
+          <NavigationProperty Name="TargetOfLinks" Relationship="ConnectomeModel.FK_PermittedStructureLink_TargetType1" FromRole="StructureType" ToRole="PermittedStructureLink" />
         </EntityType>
         <EntityType Name="StructureLink">
           <Key>
@@ -586,13 +720,13 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Property Name="TargetID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="None" />
           <Property Name="Bidirectional" Type="Boolean" Nullable="false" />
           <Property Name="Tags" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
-          <Property Name="Username" Type="String" MaxLength="16" FixedLength="true" Unicode="true" Nullable="false" />
+          <Property Name="Username" Type="String" MaxLength="254" FixedLength="false" Unicode="true" />
           <Property Name="Created" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
           <Property Name="LastModified" Type="DateTime" Nullable="false" Precision="3" annotation:StoreGeneratedPattern="Computed" />
           <NavigationProperty Name="Source" Relationship="Self.FK_StructureLinkSource_StructureBaseID" FromRole="StructureLink" ToRole="Structure" />
           <NavigationProperty Name="Target" Relationship="Self.FK_StructureLinkTarget_StructureBaseID" FromRole="StructureLink" ToRole="Structure" />
         </EntityType>
-        <Association Name="FK_Location_StructureBase1">
+        <Association Name="FK_Location_Structure">
           <End Role="Structure" Type="Self.Structure" Multiplicity="1">
             <OnDelete Action="Cascade" />
           </End>
@@ -691,12 +825,12 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
         </Association>
         <Association Name="FK_StructureType_StructureType">
           <End Role="StructureType" Type="Self.StructureType" Multiplicity="0..1" />
-          <End Role="StructureType1" Type="Self.StructureType" Multiplicity="*" />
+          <End Role="ParentStructureType" Type="Self.StructureType" Multiplicity="*" />
           <ReferentialConstraint>
             <Principal Role="StructureType">
               <PropertyRef Name="ID" />
             </Principal>
-            <Dependent Role="StructureType1">
+            <Dependent Role="ParentStructureType">
               <PropertyRef Name="ParentID" />
             </Dependent>
           </ReferentialConstraint>
@@ -708,7 +842,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <EntitySet Name="Structures" EntityType="Self.Structure" />
           <EntitySet Name="StructureTypes" EntityType="Self.StructureType" />
           <EntitySet Name="StructureLinks" EntityType="Self.StructureLink" />
-          <AssociationSet Name="FK_Location_StructureBase1" Association="Self.FK_Location_StructureBase1">
+          <AssociationSet Name="FK_Location_Structure" Association="Self.FK_Location_Structure">
             <End Role="Structure" EntitySet="Structures" />
             <End Role="Location" EntitySet="Locations" />
           </AssociationSet>
@@ -738,7 +872,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           </AssociationSet>
           <AssociationSet Name="FK_StructureType_StructureType" Association="Self.FK_StructureType_StructureType">
             <End Role="StructureType" EntitySet="StructureTypes" />
-            <End Role="StructureType1" EntitySet="StructureTypes" />
+            <End Role="ParentStructureType" EntitySet="StructureTypes" />
           </AssociationSet>
           <FunctionImport Name="ApproximateStructureLocation" ReturnType="Collection(ConnectomeModel.ApproximateStructureLocation_Result)">
           <Parameter Name="StructureID" Mode="In" Type="Int32" />
@@ -803,7 +937,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Parameter Name="StructureID" Mode="In" Type="Int64" />
           </FunctionImport>
           <FunctionImport Name="StructureLocationLinks" IsComposable="true" EntitySet="LocationLinks" ReturnType="Collection(ConnectomeModel.LocationLink)">
-            <Parameter Name="StructureID" Mode="In" Type="Int64" />
+          <Parameter Name="StructureID" Mode="In" Type="Int64" />
           </FunctionImport>
           <FunctionImport Name="SelectStructureLocationsAndLinks">
             <ReturnType EntitySet="Locations" Type="Collection(ConnectomeModel.Location)"/>
@@ -918,6 +1052,49 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
             <Parameter Name="MinRadius" Mode="In" Type="Double" />
             <Parameter Name="QueryDate" Mode="In" Type="DateTime" />
             </FunctionImport>
+          <EntitySet Name="PermittedStructureLink" EntityType="ConnectomeModel.PermittedStructureLink" />
+          <AssociationSet Name="FK_PermittedStructureLink_SourceType1" Association="ConnectomeModel.FK_PermittedStructureLink_SourceType1">
+            <End Role="StructureType" EntitySet="StructureTypes" />
+            <End Role="PermittedStructureLink" EntitySet="PermittedStructureLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PermittedStructureLink_TargetType1" Association="ConnectomeModel.FK_PermittedStructureLink_TargetType1">
+            <End Role="StructureType" EntitySet="StructureTypes" />
+            <End Role="PermittedStructureLink" EntitySet="PermittedStructureLink" />
+          </AssociationSet>
+          <FunctionImport Name="SelectNetworkChildStructures" EntitySet="Structures" ReturnType="Collection(ConnectomeModel.Structure)">
+          <Parameter Name="Hops" Mode="In" Type="Int32" />
+          </FunctionImport>
+          <FunctionImport Name="SelectNetworkChildStructureIDs">
+          <Parameter Name="Hops" Mode="In" Type="Int32" />
+          </FunctionImport>
+          <FunctionImport Name="SelectNetworkStructureIDs">
+          <Parameter Name="Hops" Mode="In" Type="Int32" />
+          </FunctionImport>
+          <FunctionImport Name="SplitStructure">
+            <Parameter Name="LocationIDOfSplitStructure" Mode="In" Type="Int64" />
+            <Parameter Name="SplitStructureID" Mode="InOut" Type="Int64" />
+          </FunctionImport>
+          <FunctionImport Name="SplitStructureByLocationLink">
+            <Parameter Name="LocationIDOfKeepStructure" Mode="In" Type="Int64" />
+            <Parameter Name="LocationIDOfSplitStructure" Mode="In" Type="Int64" />
+            <Parameter Name="SplitStructureID" Mode="InOut" Type="Int64" />
+          </FunctionImport>
+          <FunctionImport Name="SplitStructureAtLocationLink">
+            <Parameter Name="LocationIDOfKeepStructure" Mode="In" Type="Int64" />
+            <Parameter Name="LocationIDOfSplitStructure" Mode="In" Type="Int64" />
+            <Parameter Name="SplitStructureID" Mode="InOut" Type="Int64" />
+          </FunctionImport>
+          <EntitySet Name="StructureSpatialCaches" EntityType="ConnectomeModel.StructureSpatialCache" />
+          <AssociationSet Name="FK__Structure__LastM__1F959DAB" Association="ConnectomeModel.FK__Structure__LastM__1F959DAB">
+            <End Role="Structure" EntitySet="Structures" />
+            <End Role="StructureSpatialCache" EntitySet="StructureSpatialCaches" />
+          </AssociationSet>
+          <FunctionImport Name="SelectNetworkChildStructureSpatialData">
+          <Parameter Name="Hops" Mode="In" Type="Int32" />
+          </FunctionImport>
+          <FunctionImport Name="SelectNetworkStructureSpatialData">
+          <Parameter Name="Hops" Mode="In" Type="Int32" />
+          </FunctionImport>
         </EntityContainer>
         <ComplexType Name="ApproximateStructureLocation_Result">
           <Property Type="Double" Name="X" Nullable="true" />
@@ -1261,6 +1438,70 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
           <Property Type="String" Name="Username" Nullable="false" MaxLength="16" />
           <Property Type="DateTime" Name="LastModified" Nullable="false" Precision="23" />
         </ComplexType>
+        <EntityType Name="PermittedStructureLink">
+          <Key>
+            <PropertyRef Name="SourceTypeID" />
+            <PropertyRef Name="TargetTypeID" />
+          </Key>
+          <Property Name="Bidirectional" Type="Boolean" Nullable="false" />
+          <Property Name="SourceTypeID" Type="Int64" Nullable="false" />
+          <Property Name="TargetTypeID" Type="Int64" Nullable="false" />
+          <NavigationProperty Name="SourceType" Relationship="ConnectomeModel.FK_PermittedStructureLink_SourceType1" FromRole="PermittedStructureLink" ToRole="StructureType" />
+          <NavigationProperty Name="TargetType" Relationship="ConnectomeModel.FK_PermittedStructureLink_TargetType1" FromRole="PermittedStructureLink" ToRole="StructureType" />
+        </EntityType>
+        <Association Name="FK_PermittedStructureLink_SourceType1">
+          <End Type="ConnectomeModel.StructureType" Role="StructureType" Multiplicity="1" />
+          <End Type="ConnectomeModel.PermittedStructureLink" Role="PermittedStructureLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="StructureType">
+              <PropertyRef Name="ID" />
+            </Principal>
+            <Dependent Role="PermittedStructureLink">
+              <PropertyRef Name="SourceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PermittedStructureLink_TargetType1">
+          <End Type="ConnectomeModel.StructureType" Role="StructureType" Multiplicity="1" />
+          <End Type="ConnectomeModel.PermittedStructureLink" Role="PermittedStructureLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="StructureType">
+              <PropertyRef Name="ID" />
+            </Principal>
+            <Dependent Role="PermittedStructureLink">
+              <PropertyRef Name="TargetTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="StructureSpatialCache">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int64" Nullable="false" />
+          <Property Name="BoundingRect" Type="Geometry" Nullable="false" />
+          <Property Name="Area" Type="Double" Nullable="false" />
+          <Property Name="Volume" Type="Double" Nullable="false" />
+          <Property Name="MaxDimension" Type="Int32" Nullable="false" />
+          <Property Name="MinZ" Type="Double" Nullable="false" />
+          <Property Name="MaxZ" Type="Double" Nullable="false" />
+          <Property Name="ConvexHull" Type="Geometry" />
+          <Property Name="LastModified" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="Structure" Relationship="ConnectomeModel.FK__Structure__LastM__1F959DAB" FromRole="StructureSpatialCache" ToRole="Structure" />
+        </EntityType>
+        <Association Name="FK__Structure__LastM__1F959DAB">
+          <End Type="ConnectomeModel.Structure" Role="Structure" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Type="ConnectomeModel.StructureSpatialCache" Role="StructureSpatialCache" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Structure">
+              <PropertyRef Name="ID" />
+            </Principal>
+            <Dependent Role="StructureSpatialCache">
+              <PropertyRef Name="ID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
       </Schema>
     </edmx:ConceptualModels>
     <!-- C-S mapping content -->
@@ -1294,6 +1535,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
                 <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Width" ColumnName="Width" />
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1423,6 +1665,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
                 <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Width" ColumnName="Width" />
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1457,6 +1700,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
                 <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Width" ColumnName="Width" />
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1525,7 +1769,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="VolumeY" ColumnName="VolumeY" />
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
-                <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Radius" ColumnName="Radius" /> 
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1649,6 +1893,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
                 <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Width" ColumnName="Width" />
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1683,6 +1928,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
                 <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Width" ColumnName="Width" />
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1809,6 +2055,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
                 <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Width" ColumnName="Width" />
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1870,6 +2117,7 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
                 <ScalarProperty Name="Terminal" ColumnName="Terminal" />
                 <ScalarProperty Name="OffEdge" ColumnName="OffEdge" />
                 <ScalarProperty Name="Radius" ColumnName="Radius" />
+                <ScalarProperty Name="Width" ColumnName="Width" />
                 <ScalarProperty Name="TypeCode" ColumnName="TypeCode" />
                 <ScalarProperty Name="LastModified" ColumnName="LastModified" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
@@ -1895,6 +2143,37 @@ warning 6002: The table/view 'Test.dbo.StructureLink' does not have a primary ke
               </EntityTypeMapping>
             </ResultMapping>
           </FunctionImportMapping>
+          <EntitySetMapping Name="PermittedStructureLink">
+            <EntityTypeMapping TypeName="ConnectomeModel.PermittedStructureLink">
+              <MappingFragment StoreEntitySet="PermittedStructureLink">
+                <ScalarProperty Name="TargetTypeID" ColumnName="TargetTypeID" />
+                <ScalarProperty Name="SourceTypeID" ColumnName="SourceTypeID" />
+                <ScalarProperty Name="Bidirectional" ColumnName="Bidirectional" />
+                </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <FunctionImportMapping FunctionImportName="SelectNetworkChildStructures" FunctionName="ConnectomeModel.Store.SelectNetworkChildStructures" />
+          <FunctionImportMapping FunctionImportName="SelectNetworkChildStructureIDs" FunctionName="ConnectomeModel.Store.SelectNetworkChildStructureIDs" />
+          <FunctionImportMapping FunctionImportName="SelectNetworkStructureIDs" FunctionName="ConnectomeModel.Store.SelectNetworkStructureIDs" />
+          <FunctionImportMapping FunctionImportName="SplitStructure" FunctionName="ConnectomeModel.Store.SplitStructure" />
+          <FunctionImportMapping FunctionImportName="SplitStructureAtLocationLink" FunctionName="ConnectomeModel.Store.SplitStructureAtLocationLink" />
+          <EntitySetMapping Name="StructureSpatialCaches">
+            <EntityTypeMapping TypeName="ConnectomeModel.StructureSpatialCache">
+              <MappingFragment StoreEntitySet="StructureSpatialCache">
+                <ScalarProperty Name="LastModified" ColumnName="LastModified" />
+                <ScalarProperty Name="ConvexHull" ColumnName="ConvexHull" />
+                <ScalarProperty Name="MaxZ" ColumnName="MaxZ" />
+                <ScalarProperty Name="MinZ" ColumnName="MinZ" />
+                <ScalarProperty Name="MaxDimension" ColumnName="MaxDimension" />
+                <ScalarProperty Name="Volume" ColumnName="Volume" />
+                <ScalarProperty Name="Area" ColumnName="Area" />
+                <ScalarProperty Name="BoundingRect" ColumnName="BoundingRect" />
+                <ScalarProperty Name="ID" ColumnName="ID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <FunctionImportMapping FunctionImportName="SelectNetworkChildStructureSpatialData" FunctionName="ConnectomeModel.Store.SelectNetworkChildStructureSpatialData" />
+          <FunctionImportMapping FunctionImportName="SelectNetworkStructureSpatialData" FunctionName="ConnectomeModel.Store.SelectNetworkStructureSpatialData" />
         </EntityContainerMapping>
       </Mapping>
     </edmx:Mappings>

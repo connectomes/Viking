@@ -14,20 +14,134 @@ using System.Security.AccessControl;
 using Viking.UI;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using Viking.Properties; 
+using Viking.Properties;
+using System.Xml.Linq;
+using System.Windows.Threading;
+using System.Threading.Tasks;
+using Utils;
+using IdentityModel.Client;
 
 namespace Viking.UI.Forms
 {
-    
-    
+
+
     public partial class Logon : Form
     {
-        public string authenticationURL;
+        private string _AuthenticationServiceURL = null;
+        public string AuthenticationServiceURL
+        {
+            get { return _AuthenticationServiceURL; }
+            set
+            {
+                _AuthenticationServiceURL = value;
+                OnAuthenticationServiceURLChanged(_AuthenticationServiceURL);
+            }
+        }
+
+        protected string RegistrationURL
+        {
+            get
+            {
+                return AuthenticationServiceURL + "/Account/Register";
+            }
+        }
+
+        protected string AuthenticationURL
+        {
+            get
+            {
+                return AuthenticationServiceURL + "/Account/Authenticate";
+            }
+        }
+
+
+        private string _VolumeURL;
+
+        private Task _LoadVolumeTask = null;
+
+        CancellationTokenSource source = null;
 
         public string VolumeURL
         {
-            get;
-            set;
+            get { return _VolumeURL; }
+            set
+            {
+                if (_VolumeURL == Viking.Common.Util.AppendDefaultVolumeFilenameIfMissing(value))
+                    return;
+
+                _VolumeURL = Viking.Common.Util.AppendDefaultVolumeFilenameIfMissing(value);
+
+                if(_LoadVolumeTask != null)
+                {
+                    if(_LoadVolumeTask.Status != TaskStatus.RanToCompletion)
+                    {
+                        source.Cancel();
+                    }
+
+                    _LoadVolumeTask = null;
+
+                    if (source != null)
+                    {
+                        source = null;
+                    }
+                }
+
+                source = new CancellationTokenSource();
+                
+                if(_VolumeURL != null)
+                {
+                    _LoadVolumeTask = Task.Run(() => 
+                    {
+                        XDocument document = null;
+                        try
+                        {
+                            document = VolumeModel.Volume.LoadXDocument(_VolumeURL);
+                            if (this.IsHandleCreated)
+                            {
+                                this.BeginInvoke(new System.Action(() => comboVolumeURL.Text = _VolumeURL));
+                            }
+                        }
+                        catch(WebException except)
+                        {
+                            document = null;
+                            SetUpdateText("No volume found at URL");
+
+                            if (Settings.Default.VolumeURLs.Contains(_VolumeURL))
+                            {
+                                DialogResult result = MessageBox.Show(this, "Error loading volume URL, remove from history?\n\n Details:\n " + except.Message, "Invalid Volume URL", MessageBoxButtons.YesNo);
+                                if (result == DialogResult.Yes)
+                                    Settings.Default.VolumeURLs.Remove(_VolumeURL);
+                            } 
+                        }
+
+                        if (this.IsHandleCreated)
+                        {
+                            this.Invoke(new System.Action(() => VolumeDocument = document));
+                        }
+                    }, source.Token);  
+                }
+                else
+                {
+                    _VolumeDocument = null;
+                }
+
+                OnVolumeURLChanged(_VolumeURL);
+            }
+        }
+
+        private XDocument _VolumeDocument = null;
+
+        protected XDocument VolumeDocument
+        {
+            get
+            {
+                return _VolumeDocument;
+            }
+            set
+            {
+                _VolumeDocument = value;
+                OnVolumeDocumentChanged(_VolumeDocument);
+            }
         }
 
         private string userName = UI.State.AnonymousCredentials.UserName;
@@ -39,6 +153,8 @@ namespace Viking.UI.Forms
         public NetworkCredential Credentials = UI.State.AnonymousCredentials; 
 
         public DialogResult Result = DialogResult.Cancel;
+
+        public TokenResponse BearerToken; 
 
         protected string KeyFileFolderPath
         {
@@ -57,23 +173,25 @@ namespace Viking.UI.Forms
 
         public Logon(string AuthenticationURL, string VolumePath = null)
         {
-           VolumeURL = VolumePath;
-           this.authenticationURL = AuthenticationURL; 
+            if(VolumePath != null)
+                Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() => VolumeURL = VolumePath));         
 
-           keyFile = "usrcrd.vkg";
+            keyFile = "usrcrd.vkg";
              
-            State.UserCredentials = new NetworkCredential(userName, password);
+            //State.UserCredentials = new NetworkCredential(userName, password);
             
             State.userAccessLevel = "Exit";
 
             InitializeComponent();
+
+            DisableLogins();
 
             this.textUsername.Focus();
 
             this.ActiveControl = textUsername;
 
             // We can do some checking before this
-            this.update_label.Text = "Auth. over secure SSL Connection ";
+            update_label.Text = "Auth. over secure SSL Connection";
 
             if (!System.IO.Directory.Exists(this.KeyFileFolderPath))
             {
@@ -97,88 +215,156 @@ namespace Viking.UI.Forms
             }
         }
 
+        private void SetUpdateText(string text)
+        {
+            this.BeginInvoke(new System.Action(() => update_label.Text = text));
+        }
+
+        private void Logon_Load(object sender, EventArgs e)
+        {
+            if (Settings.Default.VolumeURLs == null)
+            {
+                Settings.Default.VolumeURLs = new System.Collections.Specialized.StringCollection();
+            }
+
+            for(int i = Settings.Default.VolumeURLs.Count - 1; i >= 0; i--)
+            {
+                if (Settings.Default.VolumeURLs[0] == null)
+                    Settings.Default.VolumeURLs.RemoveAt(i);
+            }
+
+            foreach (string url in Settings.Default.VolumeURLs)
+            {
+                if(url != null)
+                    comboVolumeURL.Items.Add(url);
+            }
+
+            if (this.VolumeURL != null)
+            {
+                comboVolumeURL.Text = this.VolumeURL;
+                AddToDefaultVolumeURLs(this.VolumeURL);
+            }
+            else if (Settings.Default.VolumeURLs.Count > 0)
+                comboVolumeURL.Text = Settings.Default.VolumeURLs[0].ToString();
+
+            if (comboVolumeURL.Text.Length == 0)
+            {
+                comboVolumeURL.Items.Add("http://internal.connectomes.utah.edu/RC2/");
+                comboVolumeURL.Items.Add("http://connectomes.utah.edu/Rabbit/Volume.VikingXML");
+
+                comboVolumeURL.Text = "http://connectomes.utah.edu/Rabbit/Volume.VikingXML";
+            }
+
+            if(VolumeURL == null)
+            {
+                VolumeURL = comboVolumeURL.Text;
+            }
+
+        }
+
+
         void linkLabel1_Click(object sender, System.EventArgs e)
         {
             System.Diagnostics.Process.Start("https://connectomes.utah.edu/Viz/Account/Register");
         }      
 
+        private TokenResponse RetrieveBearerToken(string username, string password)
+        {
+            //The url must match and is case-sensitive
+            //var discoTask = DiscoveryClient.GetAsync("http://localhost:5000");
+            var discoTask = DiscoveryClient.GetAsync("https://webdev.connectomes.utah.edu/identityserver");
+            discoTask.Wait();
+
+            var disco = discoTask.Result;
+
+            if (disco.IsError)
+            {
+                SetUpdateText(disco.Error);
+                return null;
+            }
+
+            // request token
+            var tokenClient = new TokenClient(disco.TokenEndpoint, "ro.viking", "secret");
+            var tokenResponseTask = tokenClient.RequestResourceOwnerPasswordAsync(username, password, "Viking.Annotation openid");
+            tokenResponseTask.Wait();
+
+            TokenResponse tokenResponse = tokenResponseTask.Result;
+
+            if (tokenResponse.IsError)
+            {
+                Console.WriteLine(tokenResponse.Error);
+                SetUpdateText(tokenResponse.Error);
+                return null;
+            }
+
+            Console.WriteLine("Bearer Token: " + tokenResponse.Json);
+
+            return tokenResponse;
+        }
+
         void login_handle(object sender, System.EventArgs e)
         {
-            this.update_label.Text = "Authenticating...";
+            SetUpdateText("Authenticating...");
 
             userName = this.textUsername.Text;
 
             password = this.textPassword.Text;
-
-            
+             
             if (String.IsNullOrEmpty(userName))
-                this.update_label.Text = "Enter Username";
+                SetUpdateText("Enter Username");
 
             if (String.IsNullOrEmpty(password))
-                this.update_label.Text = "Enter Password";
+                SetUpdateText("Enter Password");
 
-            this.Credentials = new NetworkCredential(userName, password); 
+            this.BearerToken = RetrieveBearerToken(userName, password);
 
-            string responseData = createConnection();
-
-            if (responseData == "Exit")
+            if(BearerToken == null)
             {
-                this.update_label.Text = "Oops! Server Error, try again";
                 return;
             }
 
+            this.Credentials = new NetworkCredential(userName, password);
+            //this.Credentials = new NetworkCredential("jamesan", "4%w%o06");
 
-            if (responseData == "Invalid")
+            State.userAccessLevel = "Admin";
+            
+            if (this.textUsername.Text != readUserName)
+                System.IO.File.Delete(this.KeyFileFullPath);
+
+            if (remember_me_check_box.Checked)
             {
-                counter++;
-
-                if (counter == 3)
-                    this.Close();
-
-                
-                this.update_label.Text = "Sorry: Invalid credentials, try again " + counter + "/3" ;
-            }
-            else //Login successful
-            {
-                if (this.textUsername.Text != readUserName)
-                    System.IO.File.Delete(this.KeyFileFullPath);
-
-                if (remember_me_check_box.Checked)
+                try
                 {
-                    try
-                    {
 #if DEBUG
-                        WriteCredentialsInFile(new NetworkCredential(userName, password));
+                    WriteCredentialsInFile(new NetworkCredential(userName, password));
 #else
-                        WriteCredentialsInEncryptedFile(new NetworkCredential(userName, password));
+                    WriteCredentialsInEncryptedFile(new NetworkCredential(userName, password));
 #endif
-                    }
-                    catch(IOException except)
-                    {
-                        MessageBox.Show("An exception occured saving your credentials. Viking will continue but your credentials will not be saved for the next login.\nException message:\n" + except.Message);
-                        if (System.IO.File.Exists(this.KeyFileFullPath))
-                        {
-                            System.IO.File.Delete(this.KeyFileFullPath);
-                        }
-                    }
                 }
-
-                else
+                catch(IOException except)
                 {
+                    MessageBox.Show("An exception occured saving your credentials. Viking will continue but your credentials will not be saved for the next login.\nException message:\n" + except.Message);
                     if (System.IO.File.Exists(this.KeyFileFullPath))
                     {
                         System.IO.File.Delete(this.KeyFileFullPath);
                     }
                 }
-
-                this.update_label.Text = "Login Successful! -- Access Level: " + responseData.ToUpper();
-
-                State.userAccessLevel = responseData;
-
-                this.Result = DialogResult.OK;
-
-                this.Close();
             }
+
+            else
+            {
+                if (System.IO.File.Exists(this.KeyFileFullPath))
+                {
+                    System.IO.File.Delete(this.KeyFileFullPath);
+                }
+            }
+
+            SetUpdateText("Login Successful! -- Access Level: ");
+            
+            this.Result = DialogResult.OK;
+
+            this.Close();
+            
 
         }
 
@@ -314,42 +500,62 @@ namespace Viking.UI.Forms
 
         void Handle_Anonymmous(object sender, System.EventArgs e)
         {
-            this.update_label.Text = "Authenticating...";
-
-            userName = "anonymous";
-
-            password = "connectome";
-
-            string responseData = createConnection();
-
-            if (responseData == "Read")
+            if (this.AuthenticationServiceURL != null)
             {
-                this.update_label.Text = "Anonymous Login Successful! -- Access Level: " + responseData.ToUpper();
+                SetUpdateText("Authenticating...");
 
-                State.userAccessLevel = responseData;
+                userName = "anonymous";
+
+                password = "connectome";
+                /*
+                string responseData = createConnection();
+
+                if (responseData == "Read")
+                {
+                    SetUpdateText("Anonymous Login Successful! -- Access Level: " + responseData.ToUpper());
+                    */
+                State.userAccessLevel = "Read";
 
                 this.Result = DialogResult.OK;
 
                 this.Close();
+                /*
+
+                else
+
+                    SetUpdateText("Oops! Server Error, try again");
+                */
             }
-
             else
-
-                this.update_label.Text = "Oops! Server Error, try again";
+            {
+                this.Result = DialogResult.OK;
+                State.userAccessLevel = "Read";
+                this.Close();
+            }
         }
        
         string createConnection()
         { 
             string postdata = string.Format("userName={0}&password={1}", userName, password);
+            if(userName == "anonymous")
+                return "Exit";
 
-            Uri AuthenticationURI = new Uri(authenticationURL + "?" + postdata);
+            Uri AuthenticationURI;
+            try
+            {
+                AuthenticationURI = new Uri(this.AuthenticationURL + "?" + postdata);
+            }
+            catch (UriFormatException e)
+            {
+                return "Exit";
+            }
 
             if (AuthenticationURI.Scheme.ToLower() != "https")
             {
                 throw new ArgumentException("Logon UI, createConnection(): Expected to authenticate to an https URI scheme"); 
             }
             
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(authenticationURL+"?" + postdata);
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(AuthenticationURI);
             request.Method = "POST";
 
             using (StreamWriter stream = new StreamWriter(request.GetRequestStream()))
@@ -358,21 +564,30 @@ namespace Viking.UI.Forms
             }
 
             // Do not validate server certificate, since its user generated for now
-            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-            
-            using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
+            //ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+
+            try
             {
-                if (response == null)
-                    this.update_label.Text = "Null response";
-                else if (response.StatusCode != HttpStatusCode.OK)
-                    this.update_label.Text = response.StatusDescription;
-                else
+                using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
                 {
-                    using (StreamReader streamRead = new StreamReader(response.GetResponseStream()))
+                    if (response == null)
+                        SetUpdateText("Null response");
+                    else if (response.StatusCode != HttpStatusCode.OK)
+                        SetUpdateText(response.StatusDescription);
+                    else
                     {
-                        return streamRead.ReadToEnd();
+                        using (StreamReader streamRead = new StreamReader(response.GetResponseStream()))
+                        {
+                            return streamRead.ReadToEnd();
+                        }
                     }
                 }
+            }
+            catch(WebException e)
+            {
+                
+                SetUpdateText("Failure communicating with authentication server.\n" + e.Message);
+                return "Exit";
             }
 
             return "Exit";
@@ -426,12 +641,12 @@ namespace Viking.UI.Forms
 
         private void annotationsLink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("http://connectomes.utah.edu/Viz");
+            System.Diagnostics.Process.Start(this.AuthenticationServiceURL);
         }
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("http://connectomes.utah.edu/Viz");
+            System.Diagnostics.Process.Start(this.RegistrationURL);
         }
 
         private void pictureBox1_Click(object sender, EventArgs e)
@@ -532,54 +747,98 @@ namespace Viking.UI.Forms
             return UTF8.GetString( Results );
         }
 
-        private void Logon_Load(object sender, EventArgs e)
+        private void OnVolumeURLChanged(string URL)
         {
-            if (Settings.Default.VolumeURLs == null)
-            {
-                Settings.Default.VolumeURLs = new System.Collections.Specialized.StringCollection();
-            }
-             
-            foreach (string url in Settings.Default.VolumeURLs)
-            {
-                comboVolumeURL.Items.Add(url);
-            }
-
             if (this.VolumeURL != null)
             {
-                comboVolumeURL.Text = this.VolumeURL;
-                if (!Settings.Default.VolumeURLs.Contains(this.VolumeURL))
+                comboVolumeURL.Text = this.VolumeURL; 
+            }
+        }
+
+        private void OnVolumeDocumentChanged(XDocument volume)
+        {
+            if (volume != null)
+            {
+                XElement volElem = VolumeModel.Volume.GetVolumeElement(volume);
+                if (volElem != null)
                 {
-                    Settings.Default.VolumeURLs.Insert(0, this.VolumeURL); 
+                    //We managed to load our URL so add it to our list of defaults
+                    AddToDefaultVolumeURLs(this.VolumeURL);
+                    this.AuthenticationServiceURL = AuthenticationURLForVolume(volElem);
                 }
             }
-            else if (Settings.Default.VolumeURLs.Count > 0)
-                comboVolumeURL.Text = Settings.Default.VolumeURLs[0].ToString();
-
-            if (comboVolumeURL.Text.Length == 0)
+            else
             {
-                comboVolumeURL.Items.Add("http://internal.connectomes.utah.edu/RC2/");
-                comboVolumeURL.Items.Add("http://connectomes.utah.edu/Rabbit/Volume.VikingXML");
+                this.AuthenticationServiceURL = null;
+            }
+        }
 
-                comboVolumeURL.Text = "http://connectomes.utah.edu/Rabbit/Volume.VikingXML";
+        private void OnAuthenticationServiceURLChanged(string service)
+        {
+            if (service == null)
+            {
+                DisableLogins();
+                if (VolumeDocument != null)
+                {
+                    SetUpdateText("No annotation enabled in volume.");
+                }
+            }
+            else if (service != null && VolumeDocument != null)
+            {
+                EnableLogins();
+                SetUpdateText(null);
+            }
+        }
+
+        private void DisableLogins()
+        {
+            groupCredentials.Enabled = false;
+        }
+
+        private void EnableLogins()
+        {
+            groupCredentials.Enabled = true;
+            BeginInvoke(new Action(() => createConnection()));
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="volume"></param>
+        /// <returns>Null if no authentication server, otherwise server URL</returns>
+        private static string AuthenticationURLForVolume(XElement volume)
+        {
+            List<XElement> matches = volume.Nodes().Where(n => n.NodeType == System.Xml.XmlNodeType.Element).Cast<XElement>().Where(e => e.Name.LocalName.ToLower() == "volumetoendpoint").ToList();
+
+            if (matches.Count == 0)
+                return null;
+
+            XElement elem = matches.First();
+            XAttribute attrib = elem.GetAttributeCaseInsensitive("authentication");
+            if(attrib != null)
+            {
+                return attrib.Value;
             }
 
-            
-
-            this.VolumeURL = comboVolumeURL.Text; 
+            return null;
         }
 
 
         private void comboVolumeURL_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if(comboVolumeURL.SelectedIndex > -1)
-                comboVolumeURL.Text = comboVolumeURL.Items[comboVolumeURL.SelectedIndex].ToString(); 
+            if (comboVolumeURL.SelectedIndex > -1)
+            {
+                comboVolumeURL.Text = comboVolumeURL.Items[comboVolumeURL.SelectedIndex].ToString();
+                SubmitComboVolumeURLChanges();
+            }
+
         }
 
         private string TryAddVikingXMLExtension(string URL)
         {
             string NewURL = URL;
 
-            if (!NewURL.EndsWith(".vikingxml"))
+            if (!NewURL.ToLower().EndsWith(".vikingxml"))
             {
                 if (NewURL.EndsWith("/") == false)
                     NewURL = NewURL + '/';
@@ -590,80 +849,39 @@ namespace Viking.UI.Forms
             return NewURL;
         }
 
-        private void comboVolumeURL_Validating(object sender, CancelEventArgs e)
+        private void AddToDefaultVolumeURLs(string NewURL)
         {
-            Cursor oldCursor = this.Cursor;
-            this.Cursor = Cursors.WaitCursor;
+            if (NewURL == null)
+                return;
 
-            HttpWebRequest request = null;
-            WebResponse response = null;
+            if (Settings.Default.VolumeURLs.Contains(NewURL))
+            {
+                Settings.Default.VolumeURLs.Remove(NewURL);
+            }
 
-            e.Cancel = false; 
-
+            Settings.Default.VolumeURLs.Insert(0, NewURL);
+        }
+         
+        private void comboVolumeURL_Validating(object sender, CancelEventArgs e)
+        { 
             string NewURL = comboVolumeURL.Text;
 
             if (!(NewURL.ToLower().StartsWith("http:") ||
                NewURL.ToLower().StartsWith("https:")))
-                NewURL = "http://" + NewURL; 
+                NewURL = "http://" + NewURL;
 
             try
             {
-                
                 Uri volumeURI = new Uri(NewURL);
 
-                //Make sure the website includes a file, if it does not then include Volume.VikingXML by default
-                string path = volumeURI.GetComponents(UriComponents.Path, UriFormat.SafeUnescaped);
-                if (path.Contains(".") == false)
-                {
-                    NewURL = TryAddVikingXMLExtension(NewURL);
-                    volumeURI = new Uri(NewURL); 
-                }
-
-                request = WebRequest.Create(volumeURI) as HttpWebRequest;
-                if (volumeURI.Scheme.ToLower() == "https")
-                    request.Credentials = this.Credentials;
-                
-                request.CachePolicy = new System.Net.Cache.RequestCachePolicy(System.Net.Cache.RequestCacheLevel.Revalidate);
-
-                response = request.GetResponse();
-
-                if (Settings.Default.VolumeURLs.Contains(NewURL))
-                {
-                    Settings.Default.VolumeURLs.Remove(NewURL);
-                }
-
-                Settings.Default.VolumeURLs.Insert(0, NewURL);
+                this.VolumeURL = NewURL;
+                this.comboVolumeURL.Text = NewURL;
             }
-            catch (Exception except)
+            catch(UriFormatException)
             {
                 e.Cancel = true;
-
-                //Remove a URL that didn't work
-                if (Settings.Default.VolumeURLs.Contains(NewURL))
-                {
-                    DialogResult result = MessageBox.Show(this, "Error loading volume URL, remove from history?\n\n Details:\n " + except.Message, "Invalid Volume URL", MessageBoxButtons.YesNo);
-                    if (result == DialogResult.Yes)
-                        Settings.Default.VolumeURLs.Remove(NewURL);
-                }
-                else
-                {
-                    DialogResult result = MessageBox.Show(this, "Error loading volume URL:\n\n Details:\n " + except.Message, "Invalid Volume URL", MessageBoxButtons.OK);
-                }                
-                return;
+                SetUpdateText("Invalid valid URL format");
             }
-            finally
-            {
-                if (response != null)
-                {
-                    response.Close();
-                    response = null; 
-                }
-
-                this.Cursor = oldCursor;
-            }
-
-            this.comboVolumeURL.Text = NewURL; 
-            this.VolumeURL = NewURL;
         }
 
         private void Logon_FormClosed(object sender, FormClosedEventArgs e)
@@ -682,6 +900,53 @@ namespace Viking.UI.Forms
                 this.comboVolumeURL.Text = ServerURL;
                 this.VolumeURL = ServerURL;
             }
+        }
+
+        /// <summary>
+        /// When typing in a URL we reset a timer every time a change is made.  If the typing stops the timer ticks and the URL is tested to see if it is a real volume.
+        /// The goal is not to submit a server request every keystroke.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void comboVolumeURL_TextUpdate(object sender, EventArgs e)
+        {
+            //If the text value is a valid URI, then update.
+            string NewURL = comboVolumeURL.Text;
+
+            //Reset our timer
+            SubmitURLChangedTimer.Stop();
+            SubmitURLChangedTimer.Start();
+        }
+
+        private void SubmitComboVolumeURLChanges()
+        {
+            ///When this timer elapses we submit the URL that has been typed and disable the timer until the URL is changed.
+            string NewURL = comboVolumeURL.Text;
+
+            if (!(NewURL.ToLower().StartsWith("http:") ||
+               NewURL.ToLower().StartsWith("https:")))
+                NewURL = "http://" + NewURL;
+
+            if (NewURL != this.VolumeURL)
+            {
+                try
+                {
+                    Uri volumeURI = new Uri(NewURL);
+
+                    this.VolumeURL = NewURL;
+                    this.comboVolumeURL.Text = NewURL;
+                    SubmitURLChangedTimer.Stop();
+                }
+                catch (UriFormatException)
+                {
+                    return;
+                }
+            }
+        }
+
+        private void SubmitURLChangedTimer_Tick(object sender, EventArgs e)
+        {
+            SubmitComboVolumeURLChanges();
         }
     }
 }

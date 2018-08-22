@@ -5,12 +5,28 @@ using System.Linq;
 using System.Text;
 
 namespace Geometry
-{
-    [Serializable]
-    public struct GridLineSegment : IComparable, ICloneable, IComparer<GridLineSegment>
+{ 
+        [Serializable]
+    public struct GridLineSegment : IComparable, ICloneable, IComparer<GridLineSegment>, ILineSegment2D, IEquatable<GridLineSegment>
     {
         public readonly GridVector2 A;
         public readonly GridVector2 B;
+
+        public GridLineSegment(IPoint2D A, IPoint2D B)
+        {
+            /* This is a bad idea because callers expect A and B to maintain position
+            int diff = A.Compare(A, B);
+            this.A = diff <= 0 ? A : B;
+            this.B = diff <= 0 ? B : A;
+            */
+            this.A = A.Convert();
+            this.B = B.Convert();
+
+            if (A == B)
+            {
+                throw new ArgumentException("Can't create line with two identical points");
+            }
+        }
 
         public GridLineSegment(GridVector2 A, GridVector2 B)
         {
@@ -114,16 +130,16 @@ namespace Geometry
         }
 
         public override bool Equals(object obj)
-        {
+        { 
             GridLineSegment ls;
 //            try
 //            {
                 ls = (GridLineSegment)obj;
-//            }
-//            catch(System.InvalidCastException e)
-//            {
-//                return false; 
-//            }
+            //            }
+            //            catch(System.InvalidCastException e)
+            //            {
+            //                return false; 
+            //            }
             /*
             if (A.X == ls.A.X &&
                 A.Y == ls.A.Y &&
@@ -131,31 +147,40 @@ namespace Geometry
                 B.Y == ls.B.Y)
                 return true;
             */
+            if (object.ReferenceEquals(obj, null))
+                return false;
+
+            if (this.A == ls.A && this.B == ls.B)
+                return true;
+
+            if (this.A == ls.B && this.B == ls.A)
+                return true;
+
+            /*
                 if (MaxX == ls.MaxX &&
                    MaxY == ls.MaxY &&
                    MinX == ls.MinX &&
                    MinY == ls.MinY)
                     return true; 
+                    */
 
             return false; 
         }
 
         static public bool operator ==(GridLineSegment A, GridLineSegment B)
         {
-//            if (A.A == B.A && A.B == B.B)
-//                    return true;
-            if (A.MaxX == B.MaxX &&
-                   A.MaxY == B.MaxY &&
-                   A.MinX == B.MinX &&
-                   A.MinY == B.MinY)
-                return true; 
-            /*
-            if (A.A.X == B.A.X &&
-                A.A.Y == B.A.Y &&
-                A.B.X == B.B.X &&
-                A.B.Y == B.B.Y)
+            if (object.ReferenceEquals(A, B))
                 return true;
-            */
+
+            if (object.ReferenceEquals(A, null) || object.ReferenceEquals(B, null))
+                return false;
+
+            if (A.A == B.A && A.B == B.B)
+                return true;
+
+            if (A.A == B.B && A.B == B.A)
+                return true;
+            
             return false; 
         }
 
@@ -245,9 +270,58 @@ namespace Geometry
         /// <param name="seg"></param>
         /// <param name="Endpoint"></param>
         /// <returns></returns>
+        public bool SharedEndPoint(GridLineSegment seg)
+        {
+            bool AMatch = A == seg.A || A == seg.B;
+            bool BMatch = B == seg.A || B == seg.B;
+
+            return AMatch || BMatch;
+        }
+
+        /// <summary>
+        /// Return true if either point at each end of the line matches an endpoint of the passed segment
+        /// </summary>
+        /// <param name="seg"></param>
+        /// <param name="Endpoint"></param>
+        /// <returns></returns>
         public bool SharedEndPoint(GridLineSegment seg, out GridVector2 Endpoint)
         {
-            throw new NotImplementedException("SharedEndPoint not implemented");
+            bool AMatch = A == seg.A || A == seg.B;
+            bool BMatch = B == seg.A || B == seg.B;
+             
+            if(AMatch || BMatch)
+            {
+                Endpoint = AMatch ? A : B;
+                return true;
+            }
+            else
+            {
+                Endpoint = GridVector2.Zero;
+                return false;
+            }
+        }
+
+        public bool IsEndpoint(IPoint2D p)
+        {
+            return A == p || B == p;
+        }
+
+        /// <summary>
+        /// Return true if point p is to left when standing at A looking towards B
+        /// </summary>
+        /// <param name="p"></param>
+        /// <returns> 1 for left
+        ///           0 for on the line
+        ///           -1 for right
+        /// </returns>
+        public int IsLeft(GridVector2 p)
+        {
+            return Math.Sign((B.X - A.X) * (p.Y - A.Y) - (B.Y - A.Y) * (p.X - A.X));
+        }
+
+        public GridVector2 OppositeEndpoint(GridVector2 p)
+        {
+            return A == p ? B : A;
         }
 
         public GridVector2 Bisect()
@@ -267,10 +341,54 @@ namespace Geometry
             }
         }
 
+
+        public bool Contains(GridVector2 p)
+        {
+            return Math.Abs(this.DistanceToPoint(p)) < Global.Epsilon;
+        }
+
+        /// <summary>
+        /// Project the point p onto the line
+        /// </summary>
+        /// <param name="p"></param>
+        /// <returns></returns>
+        public double Dot(GridVector2 p)
+        {
+            return GridVector2.Dot(p - A, B - A);
+        }
+
+        /// <summary>
+        /// Return a normal to the line, the returned vector is normalized
+        /// </summary>
+        public GridVector2 Normal
+        {
+            get
+            {
+                GridVector2 delta = B - A;
+
+                GridVector2 normal = new GridVector2(-delta.Y, delta.X);
+                normal.Normalize();
+                return normal;
+            }
+        }
+
         public double DistanceToPoint(GridVector2 point)
         {
             GridVector2 temp;
             return DistanceToPoint(point, out temp);
+        }
+
+        /// <summary>
+        /// The point on the segment at a fractional distance between A & B
+        /// </summary>
+        /// <param name="fraction"></param>
+        /// <returns></returns>
+        public GridVector2 PointAlongLine(double fraction)
+        {
+            GridVector2 delta = B - A;
+            delta *= fraction;
+
+            return A + delta;
         }
           
         internal static bool NearlyZero(double value)
@@ -382,12 +500,72 @@ namespace Geometry
 
         public bool Intersects(GridLineSegment seg)
         {
-            GridVector2 intersection;
+            IShape2D intersection;
             return this.Intersects(seg, out intersection);
+        }
+
+        public bool Intersects(GridLineSegment seg, bool EndpointsOnRingDoNotIntersect)
+        {
+            IShape2D intersection;
+            return this.Intersects(seg, EndpointsOnRingDoNotIntersect, out intersection);
+        }
+
+        public bool Intersects(GridLineSegment seg, bool EndpointsOnRingDoNotIntersect, out IShape2D Intersection)
+        { 
+            bool intersects = this.Intersects(seg, out Intersection); 
+
+            if(intersects && EndpointsOnRingDoNotIntersect)
+            {
+                if (Intersection.ShapeType == ShapeType2D.POINT)
+                { 
+                    return !seg.IsEndpoint((IPoint2D)Intersection);
+                }
+                else if(Intersection.ShapeType == ShapeType2D.LINE)
+                {
+                    return true;
+                }
+
+                Debug.Fail("We should not be able to reach this case, a line intersection is either a point or a line");
+                return true;
+            }
+
+            return intersects;
         }
 
         public bool Intersects(GridLineSegment seg, out GridVector2 Intersection)
         {
+            IShape2D shape;  
+            Intersection = new GridVector2();
+            bool intersects = this.Intersects(seg, out shape);
+            if(intersects)
+            {
+                if (shape.ShapeType == ShapeType2D.POINT)
+                {
+                    Intersection = (GridVector2)shape;
+                    return true;
+                }
+                else if (shape.ShapeType == ShapeType2D.LINE)
+                {
+                    Intersection = (GridVector2)(((ILineSegment2D)shape).A);
+                    return true;
+                }
+
+                Debug.Fail("We should not be able to reach this case, a line intersection is either a point or a line");
+                return true;
+            }
+
+            return intersects;
+        }
+
+        public bool Intersects(GridLineSegment seg, out IShape2D Intersection)
+        {
+            //Don't do the full check if the bounding boxes don't overlap
+            if (!this.BoundingBox.Intersects(seg.BoundingBox))
+            {
+                Intersection = new GridVector2();
+                return false;
+            }
+
             //Function for each line
             //Ax + By = C
 
@@ -404,8 +582,41 @@ namespace Geometry
             //Check if lines are parallel
             if (det == 0)
             {
-                Intersection = new GridVector2();
-                return false;
+                Intersection = GridVector2.Zero;
+
+                //Check if the distance to the endpoint of the other line is zero
+                GridRectangle? overlapRect = this.BoundingBox.Intersection(seg.BoundingBox);
+                if (!overlapRect.HasValue)
+                {
+                   
+                    return false;
+                }
+
+                //Check if the lines perfectly overlap
+                GridVector2[] endpoints = new GridVector2[] { seg.A, seg.B, this.A, this.B }.Distinct().ToArray();
+                GridVector2[] endpointsOnLine = endpoints.Where(e => overlapRect.Value.Contains(e) && seg.DistanceToPoint(e) < Global.Epsilon).ToArray();
+
+                Debug.Assert(endpointsOnLine.Length > 0, "Must have intersecting points if the bounding boxes overlap for parallel line intersection test");
+                if(endpointsOnLine.Length == 0)
+                {
+                    return false;
+                }
+                else if(endpointsOnLine.Length == 1)
+                {
+                    Intersection = endpointsOnLine[0];
+                    return true;
+                }
+                else if(endpointsOnLine.Length == 2)
+                {
+                    Intersection = new GridLineSegment(endpointsOnLine[0], endpointsOnLine[1]);
+                    return true;
+                }
+                else
+                {
+                    GridVector2[] endpointsOnOverlapRect = endpointsOnLine.Where(e => overlapRect.Value.Corners.Contains(e)).ToArray();
+                    Intersection = new GridLineSegment(endpointsOnOverlapRect[0], endpointsOnOverlapRect[1]);
+                    return true;
+                }
             }
             else
             {
@@ -442,10 +653,57 @@ namespace Geometry
             }
         }
 
-        public bool Intersects(GridLineSegment[] seg)
+        public bool Intersects(IEnumerable<GridLineSegment> seg)
         {
             GridLineSegment line = this;
             return seg.Any(ls => line.Intersects(ls));
+        }
+
+
+        public bool Intersects(IShape2D shape)
+        {
+            return ShapeExtensions.LineIntersects(this, shape);
+        }
+
+
+        public bool Intersects(ICircle2D c)
+        {
+            GridCircle circle = c.Convert();
+            return this.Intersects(circle);
+        }
+
+        public bool Intersects(GridCircle circle)
+        {
+            return LineIntersectionExtensions.Intersects(this, circle);
+        }
+
+
+        public bool Intersects(ILineSegment2D l)
+        {
+            GridLineSegment line = l.Convert();
+            return this.Intersects(line);
+        }
+         
+        public bool Intersects(ITriangle2D t)
+        {
+            GridTriangle tri = t.Convert();
+            return this.Intersects(tri);
+        }
+
+        public bool Intersects(GridTriangle tri)
+        {
+            return LineIntersectionExtensions.Intersects(this, tri);
+        }
+
+        public bool Intersects(IPolygon2D p)
+        {
+            GridPolygon poly = p.Convert();
+            return this.Intersects(poly);
+        }
+
+        public bool Intersects(GridPolygon poly)
+        {
+            return LineIntersectionExtensions.Intersects(this, poly);
         }
 
         public double MinX
@@ -486,6 +744,63 @@ namespace Geometry
             {
                 return new GridRectangle(MinX, MaxX, MinY, MaxY);
             }
+        }
+
+        IPoint2D ILineSegment2D.A
+        {
+            get
+            {
+                return this.A;
+            }
+        }
+
+        IPoint2D ILineSegment2D.B
+        {
+            get
+            {
+                return this.B;
+            }
+        }
+
+        public double Area
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public ShapeType2D ShapeType
+        {
+            get
+            {
+                return ShapeType2D.LINE;
+            }
+        }
+
+        public GridLine ToLine()
+        {
+            return new GridLine(this.A, this.Direction);
+        }
+
+        public bool Contains(IPoint2D p)
+        {
+            return this.Contains(p.Convert());
+        }
+
+        public IShape2D Translate(IPoint2D offset)
+        {
+            return this.Translate(offset.Convert());
+        }
+
+        public GridLineSegment Translate(GridVector2 offset)
+        {
+            return new GridLineSegment(this.A + offset, this.B + offset);
+        }
+
+        bool IEquatable<GridLineSegment>.Equals(GridLineSegment other)
+        {
+            return this == other;
         }
     }
 }

@@ -35,8 +35,13 @@ namespace WebAnnotation
         public static readonly double AdjacentLocationRadiusScalar = 0.5; //Make radius of annotations on adjacent sections half of the normal value
 
         //TODO: Choose number of points based on distance between control points
-        static public uint NumOpenCurveInterpolationPoints = 3;
-        static public uint NumClosedCurveInterpolationPoints = 10;
+        static public readonly uint NumOpenCurveInterpolationPoints = 3;
+        static public readonly uint NumClosedCurveInterpolationPoints = 10;
+
+        public static uint NumCurveInterpolationPoints(bool Closed)
+        {
+            return Closed ? NumClosedCurveInterpolationPoints : NumOpenCurveInterpolationPoints;
+        }
 
         static public double DefaultClosedLineWidth = 24.0;
 
@@ -113,6 +118,8 @@ namespace WebAnnotation
          }   
         
         }
+
+        public static long? LastEditedAnnotationID;
 
         #region IInitExtensions Members
 
@@ -201,7 +208,7 @@ namespace WebAnnotation
         }
 
         static bool GetEndpointFromXML(XElement elem)
-    { 
+        { 
             //Fetch the name if we know it
             switch (elem.Name.LocalName)
             {
@@ -225,7 +232,7 @@ namespace WebAnnotation
             }
 
             //If we have an endpoint address then give the OK to load
-            if (WebAnnotationModel.State.EndpointAddress != null)
+            if (WebAnnotationModel.State.Endpoint != null)
                 return true; 
 
             //We don't have an endpoint to read/write annotations.  Do not load.
@@ -242,10 +249,10 @@ namespace WebAnnotation
             if (EndpointAttribute != null)
             {
                 #if DEBUG
-                    WebAnnotationModel.State.EndpointAddress = new EndpointAddress(EndpointAttribute.Value);                       
+                          WebAnnotationModel.State.Endpoint = new Uri(EndpointAttribute.Value); 
 //                        WebAnnotationModel.State.EndpointAddress = new EndpointAddress("https://connectomes.utah.edu/Services/TestBinary/Annotate.svc");
                 #else
-                    WebAnnotationModel.State.EndpointAddress = new EndpointAddress(EndpointAttribute.Value);                       
+                WebAnnotationModel.State.Endpoint = new Uri(EndpointAttribute.Value);
                 #endif
             }
 

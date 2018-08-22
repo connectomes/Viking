@@ -123,6 +123,14 @@ namespace Viking.VolumeModel
         /// This transform contains the tile transformation for mosaics (usually grid.mosaic) which will be warped into volume space
         /// </summary>
         public List<string> VolumeTransformList = new List<string>();
+         
+        public Geometry.AxisUnits XYScale
+        {
+            get
+            { 
+                return this.volume.DefaultXYScale; 
+            }
+        }
 
         /// <summary>
         /// Current the section number padded with four digits.  Could be a different name, 
@@ -141,7 +149,7 @@ namespace Viking.VolumeModel
 
 
         /// <summary>
-        /// This can be called to inform the section to do the math to warp the section on a seperate thread in anticipation
+        /// This can be called to inform the section to do the math to warp the section on a separate thread in anticipation
         /// of being used in the near future
         /// </summary>
         /// <param name="transform"></param>
@@ -154,7 +162,7 @@ namespace Viking.VolumeModel
             if (map == null)
                 return;
 
-            //Launch a seperate thread to begin warping
+            //Launch a separate thread to begin warping
             
             //System.Threading.ThreadStart threadDelegate = new System.Threading.ThreadStart(map.Warp);
             System.Threading.ThreadPool.QueueUserWorkItem(map.Warp);
@@ -283,6 +291,8 @@ namespace Viking.VolumeModel
                         }
 
                         break;
+                    
+
                 }
             }
         }

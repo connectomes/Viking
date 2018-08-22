@@ -13,7 +13,7 @@ namespace Geometry.Transforms
     /// A transform that uses a triangulation
     /// </summary>
     [Serializable]
-    public abstract class TriangulationTransform : ReferencePointBasedTransform, IDisposable, IDiscreteTransform
+    public abstract class TriangulationTransform : ReferencePointBasedTransform, IDisposable, IDiscreteTransform, IControlPointTriangulation
     {
         /// <summary>
         /// Return the control triangle which can map the point
@@ -611,7 +611,7 @@ namespace Geometry.Transforms
         /// <summary>
         /// This call removes cached data from the transform to reduce memory footprint.  Called when we only expect Transform and Inverse transform calls in the future
         /// </summary>
-        public virtual void MinimizeMemory()
+        public override void MinimizeMemory()
         {
             
             try
@@ -659,7 +659,7 @@ namespace Geometry.Transforms
         /// Takes two transforms and transforms the control grid of this section into the control grid space of the passed transfrom. Requires control section
         /// of this transform to match mapped section of adding transform
         /// </summary>
-        public static TriangulationTransform Transform(TriangulationTransform BtoC, TriangulationTransform AtoB, TransformInfo info)
+        public static TriangulationTransform Transform(ITransform BtoC, IControlPointTriangulation AtoB, TransformInfo info)
         {
             if (BtoC == null || AtoB == null)
             {
@@ -674,9 +674,13 @@ namespace Geometry.Transforms
             }
 
             //If they don't overlap lets save ourselves a lot of time...
-            if (BtoC.MappedBounds.Intersects(AtoB.ControlBounds) == false)
+            IDiscreteTransform DiscreteBtoC = BtoC as IDiscreteTransform;
+            if (DiscreteBtoC != null)
             {
-                return null;
+                if (DiscreteBtoC.MappedBounds.Intersects(AtoB.ControlBounds) == false)
+                {
+                    return null;
+                }
             }
 
             //FixedTransform.CalculateEdges();

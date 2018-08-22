@@ -4,6 +4,8 @@ using System.Text;
 using System.Xml; 
 using System.Xml.Linq;
 using System.Diagnostics;
+using System.Linq;
+
 using Utils;
 
 using Geometry;
@@ -15,9 +17,7 @@ namespace Viking.VolumeModel
     /// to the same value at every level of the pyramid, so the area must change
     /// </summary>
     public class TileGridMapping : TileGridMappingBase
-    {  
-         
-
+    {    
         #region TextureFileNames
 
         public override string TileFullPath(int iX, int iY, int DownsampleLevel)
@@ -66,11 +66,12 @@ namespace Viking.VolumeModel
                                string Prefix, string Postfix,
                                int TileSizeX, int TileSizeY, 
                                string GridTilePath, 
-                               string GridCoordFormat) :
-            base(section, name, Prefix, Postfix, TileSizeX, TileSizeY, GridTilePath, GridCoordFormat)
+                               string GridCoordFormat,
+                               AxisUnits XYScale) :
+            base(section, name, Prefix, Postfix, TileSizeX, TileSizeY, GridTilePath, GridCoordFormat, XYScale)
         { 
         }
-
+            
         public static TileGridMapping CreateFromTilesetElement(XElement TilesetNode, Section section)
         {
             string Name = IO.GetAttributeCaseInsensitive(TilesetNode, "name").Value;
@@ -82,6 +83,11 @@ namespace Viking.VolumeModel
             string TileGridPath = IO.GetAttributeCaseInsensitive(TilesetNode, "path").Value;
             string GridTileFormat = null;
 
+            XElement scale_elem = TilesetNode.Elements().Where(elem => elem.Name.LocalName == "Scale").FirstOrDefault();
+            AxisUnits XYScale = null;
+            if (scale_elem != null)
+                XYScale = scale_elem.ParseScale();
+
             XAttribute GridTileFormatAttribute = TilesetNode.Attribute("CoordFormat"); 
             if(GridTileFormatAttribute != null)
             {
@@ -89,7 +95,7 @@ namespace Viking.VolumeModel
             }
 
             TileGridMapping mapping = new TileGridMapping(section, Name, TilePrefix, TilePostfix,
-                                                          TileSizeX, TileSizeY, TileGridPath, GridTileFormat);
+                                                          TileSizeX, TileSizeY, TileGridPath, GridTileFormat, XYScale);
 
             
             foreach (XNode node in TilesetNode.Nodes())
@@ -112,6 +118,56 @@ namespace Viking.VolumeModel
             }
 
             return mapping;
+        }
+
+        public override bool TrySectionToVolume(GridVector2 P, out GridVector2 transformedP)
+        {
+            transformedP = P;
+            return true;
+        }
+
+        public override bool TryVolumeToSection(GridVector2 P, out GridVector2 transformedP)
+        {
+            transformedP = P;
+            return true;
+        }
+        public override GridVector2[] VolumeToSection(GridVector2[] P)
+        {
+            GridVector2[] transformedP = new GridVector2[P.Length];
+            P.CopyTo(transformedP, 0);
+            return transformedP;
+        }
+
+
+        /// <summary>
+        /// Maps a point from volume space into the section space
+        /// </summary>
+        /// <param name="?"></param>
+        /// <returns></returns>
+        public override bool[] TryVolumeToSection(GridVector2[] P, out GridVector2[] transformedP)
+        {
+            transformedP = new GridVector2[P.Length];
+            P.CopyTo(transformedP, 0);
+            return P.Select(p => { return true; }).ToArray();
+        }
+
+        /// <summary>
+        /// Maps a point from section space into the volume space
+        /// </summary>
+        /// <param name="?"></param>
+        /// <returns></returns>
+        public override bool[] TrySectionToVolume(GridVector2[] P, out GridVector2[] transformedP)
+        {
+            transformedP = new GridVector2[P.Length];
+            P.CopyTo(transformedP, 0);
+            return P.Select(p => { return true; }).ToArray();
+        }
+
+        public override GridVector2[] SectionToVolume(GridVector2[] P)
+        {
+            GridVector2[] transformedP = new GridVector2[P.Length];
+            P.CopyTo(transformedP, 0);
+            return transformedP;
         }
     }
 }

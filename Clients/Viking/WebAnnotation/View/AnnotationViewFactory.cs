@@ -44,6 +44,9 @@ namespace WebAnnotation.View
                     return new LocationCircleView(obj, mapping);
                 case LocationType.OPENCURVE:
                     return new LocationOpenCurveView(obj, mapping);
+                case LocationType.CURVEPOLYGON:
+                case LocationType.POLYGON:
+                    return new LocationPolygonView(obj, mapping);
                 case LocationType.CLOSEDCURVE:
                     return new LocationClosedCurveView(obj, mapping);
                 case LocationType.POLYLINE:
@@ -81,6 +84,8 @@ namespace WebAnnotation.View
                         return view;
                         */
                     }
+                case LocationType.POLYGON:
+                case LocationType.CURVEPOLYGON:
                 case LocationType.CLOSEDCURVE:
                     {
                         AdjacentLocationCircleView view = new AdjacentLocationCircleView(obj, obj.MosaicShape.CalculateInscribedCircle(), mapping);
@@ -106,6 +111,12 @@ namespace WebAnnotation.View
         public static StructureLinkViewModelBase Create(SectionStructureLinkViewKey key, Viking.VolumeModel.IVolumeToSectionTransform mapper)
         {
             LocationObj sourceLocation = Store.Locations[key.SourceLocID];
+            LocationObj targetLocation = Store.Locations[key.TargetLocID];
+
+            //If the location types don't match then use the default circle view, which all annotations are compatible with
+            if (sourceLocation.TypeCode != targetLocation.TypeCode)
+                return new StructureLinkCirclesView(key, mapper);
+
             switch (sourceLocation.TypeCode)
             {
                 case LocationType.CIRCLE:

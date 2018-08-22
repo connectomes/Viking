@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using SIMeasurement;
 
 using System.Diagnostics;
 
@@ -15,15 +16,23 @@ namespace MeasurementExtension
         {
             Debug.Print("Set Scale");
 
-            using (ScaleForm form = new ScaleForm(Global.UnitOfMeasure, Global.UnitsPerPixel))
+            using (ScaleForm form = new ScaleForm(Global.UnitOfMeasure.ToString(), Global.UnitsPerPixel))
             {
 
                 if (form.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
                     Global._UnitsPerPixel = form.UnitsPerPixel;
-                    Global._UnitOfMeasure = form.UnitsOfMeasure;
+                    Global._UnitOfMeasure = (SILengthUnits)Enum.Parse(typeof(SILengthUnits), form.UnitsOfMeasure);
                 }
             }
+        }
+
+        [Viking.Common.MenuItem("Show Scale Bar")]
+        static public void OnMenuShowScaleBar(object sender, EventArgs e)
+        {
+            Debug.Print("Show Scale Bar");
+
+            Global.ShowScaleBar = !Global.ShowScaleBar;
         }
 
         [Viking.Common.MenuItem("Measure Line")]

@@ -17,24 +17,54 @@ namespace Viking.VolumeModel
     /// </summary>
     public abstract class FixedTileCountMapping : MappingBase 
     {
-        private GridRectangle? _Bounds; 
-        public override GridRectangle Bounds
+        private GridRectangle? _VolumeBounds; 
+        public override GridRectangle ControlBounds
         {
             get
             {
-                if (_Bounds.HasValue == false)
+                if (_VolumeBounds.HasValue == false)
                 {
-                    GridRectangle bounds = Geometry.Transforms.ReferencePointBasedTransform.CalculateControlBounds(TileTransforms);
-                    _Bounds = new GridRectangle?(bounds);
+                    GridRectangle bounds = Geometry.Transforms.ReferencePointBasedTransform.CalculateControlBounds(TileTransforms.Cast<ITransformControlPoints>().ToArray());
+                    _VolumeBounds = new GridRectangle?(bounds);
                 }
 
-                return _Bounds.Value;
+                return _VolumeBounds.Value;
             }
         }
 
-        protected ReferencePointBasedTransform[] _TileTransforms = null;
+        private GridRectangle? _SectionBounds;
 
-        public virtual ReferencePointBasedTransform[] TileTransforms
+        public override GridRectangle? SectionBounds
+        {
+            get
+            {
+                if (_SectionBounds.HasValue == false)
+                {
+                    GridRectangle bounds = Geometry.Transforms.ReferencePointBasedTransform.CalculateMappedBounds(TileTransforms.Cast<ITransformControlPoints>().ToArray());
+                    _SectionBounds = new GridRectangle?(bounds);
+                }
+
+                return _SectionBounds.Value; 
+            }
+        }
+
+        public override GridRectangle? VolumeBounds
+        {
+            get
+            {
+                if (_VolumeBounds.HasValue == false)
+                {
+                    GridRectangle bounds = Geometry.Transforms.ReferencePointBasedTransform.CalculateControlBounds(TileTransforms.Cast<ITransformControlPoints>().ToArray());
+                    _VolumeBounds = new GridRectangle?(bounds);
+                }
+
+                return _VolumeBounds.Value;
+            }
+        }
+
+        protected ITransform[] _TileTransforms = null;
+
+        public virtual ITransform[] TileTransforms
         {
             get { return _TileTransforms; }
         }
@@ -59,7 +89,21 @@ namespace Viking.VolumeModel
                 return _CurrentPyramid.GetLevels().ToArray();
             }
         }
-        
+
+        /// <summary>
+        /// Adjust the downsample level to match the difference between the scale used in the pyramid/mapping and the default scale for the volume
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        protected double AdjustDownsampleForScale(double input)
+        {
+            if (this.CurrentPyramid.XYScale == null)
+                return input;
+
+            double relative_scale = this.CurrentPyramid.XYScale.Value / this.Section.XYScale.Value;
+            return input / relative_scale;
+        }
+
 
         /// <summary>
         /// Filename of local cache of transforms
@@ -71,7 +115,7 @@ namespace Viking.VolumeModel
 
         internal string TileTextureFileName(int number)
         {
-            Geometry.Transforms.TileTransformInfo info = this._TileTransforms[number].Info as TileTransformInfo;
+            Geometry.Transforms.TileTransformInfo info = ((ITransformInfo)this._TileTransforms[number]).Info as TileTransformInfo;
             if (info == null)
                 return null;
 
@@ -145,13 +189,13 @@ namespace Viking.VolumeModel
             }
         }
 
-        protected virtual ReferencePointBasedTransform[] LoadFromCache()
+        protected virtual ITransform[] LoadFromCache()
         {
             //The corrupted memory error disappeared when I stopped using the cache.  There are also 
             //memory leak issues documented on MSDN regarding BinaryFormatters
             //return null;
 
-            ReferencePointBasedTransform[] transforms = null;
+            ITransform[] transforms = null;
 
             try
             {
@@ -159,7 +203,7 @@ namespace Viking.VolumeModel
                 {
                     BinaryFormatter binFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
 
-                    transforms = binFormatter.Deserialize(fstream) as ReferencePointBasedTransform[];
+                    transforms = binFormatter.Deserialize(fstream) as ITransform[];
                 }
             }
             catch (Exception)
@@ -179,21 +223,24 @@ namespace Viking.VolumeModel
         {
             TilePyramid VisibleTiles = new TilePyramid(VisibleBounds); 
 
+            double scaledDownsampleLevel = AdjustDownsampleForScale(DownSample);
+
             //Setup a larger boundary outside of which we release textures
             GridRectangle releaseBounds = VisibleBounds; //Tiles outside this quad will have textures released
             GridRectangle loadBounds = VisibleBounds;  //Tiles inside this quad will have textures loaded
             GridRectangle abortBounds = VisibleBounds; //Tiles outside this quad will have HTTP requests aborted
-            releaseBounds.Scale(1.25 * DownSample);
+            releaseBounds.Scale(1.25 * scaledDownsampleLevel);
             loadBounds.Scale(1.1f);
-            abortBounds.Scale(1.20f * DownSample);
+            abortBounds.Scale(1.20f * scaledDownsampleLevel);
 
             //Get ready by loading a smaller texture in case the user scrolls this direction 
             //Once we have smaller textures then increase the quality
-//            int predictiveDownsample = DownSample * 4 > 64 ? 64 : (int)DownSample * 4;
+            //            int predictiveDownsample = DownSample * 4 > 64 ? 64 : (int)DownSample * 4;
 
-            int roundedDownsample = NearestAvailableLevel(DownSample); 
+            int roundedDownsample = NearestAvailableLevel(DownSample);
+            int roundedScaledDownsample = NearestAvailableLevel(scaledDownsampleLevel); 
            
-            ReferencePointBasedTransform[] Tranforms = this.TileTransforms;
+            ITransform[] Tranforms = this.TileTransforms;
             if (TileTransforms == null)
                 return VisibleTiles;
 
@@ -201,17 +248,20 @@ namespace Viking.VolumeModel
             List<Tile> TilesToDraw = new List<Tile>(ExpectedTileCount);
 //            List<Tile> TilesToLoad = new List<Tile>(ExpectedTileCount);
 
-            foreach (TriangulationTransform T in Tranforms)
+            foreach (ITransform T in Tranforms)
             {
+                IControlPointTriangulation T_Triangulation = T as IControlPointTriangulation;
                 //If this tile has been transformed out of existence then skip it
-                if (T.MapPoints.Length < 3)
+                if (T_Triangulation.MapPoints.Length < 3)
                     continue;
 
-                if (VisibleBounds.Intersects(T.ControlBounds))
+                ITransformControlPoints T_ControlPoints = T as ITransformControlPoints;
+                if (VisibleBounds.Intersects(T_ControlPoints.ControlBounds))
                 {
-                 //   bool LoadOnly = false; 
-                    TileTransformInfo info = T.Info as TileTransformInfo; 
-                    string name = TileFileName(info.TileFileName, roundedDownsample);
+                    //   bool LoadOnly = false; 
+                    ITransformInfo T_Info = T as ITransformInfo;
+                    TileTransformInfo info = T_Info.Info as TileTransformInfo; 
+                    string name = TileFileName(info.TileFileName, roundedScaledDownsample);
                     /*
                     if (SectionVisibleBounds != null)
                     {
@@ -224,152 +274,40 @@ namespace Viking.VolumeModel
                         }
                     }
                      */
-                    string UniqueID = Tile.CreateUniqueKey(Section.Number, Name, CurrentPyramid.Name, roundedDownsample, info.TileFileName);
+                    string UniqueID = Tile.CreateUniqueKey(Section.Number, Name, CurrentPyramid.Name, roundedScaledDownsample, info.TileFileName);
                     Tile tile = Global.TileCache.Fetch(UniqueID);
-                    if(tile == null)
+                    if(tile == null && Global.TileCache.ContainsKey(UniqueID) == false)
                     {
                         int MipMapLevels = 1; //No mip maps
-                        if (roundedDownsample == this.AvailableLevels[AvailableLevels.Length - 1])
+                        if (roundedScaledDownsample == this.AvailableLevels[AvailableLevels.Length - 1])
                             MipMapLevels = 0; //Generate mipmaps for lowest res texture
 
                         //First create a new tile
-                        PositionNormalTextureVertex[] verticies = Tile.CalculateVerticies(T, info);
+                        PositionNormalTextureVertex[] verticies = Tile.CalculateVerticies(T_ControlPoints, info);
 
-                        if(T.TriangleIndicies != null)
+                        if(T_Triangulation != null && T_Triangulation.TriangleIndicies != null)
                         {
 
                             tile = Global.TileCache.ConstructTile(UniqueID,
                                                                  verticies,
-                                                                 T.TriangleIndicies,
+                                                                 T_Triangulation.TriangleIndicies,
                                                                  this.TilePath + '/' + name,
                                                                  name,
                                 //PORT: TileCacheName(T.Number, roundedDownsample),
                                                                  this.Name,
-                                                                 roundedDownsample,
+                                                                 roundedScaledDownsample,
                                                                  MipMapLevels);//T.ImageHeight * T.ImageWidth / roundedDownsample);
                         }
                     }
                     
                     if(tile != null)
                         VisibleTiles.AddTile(roundedDownsample, tile);
-
-                    /*
-                    if (LoadOnly)
-                    {
-                        TilesToLoad.Add(tile);
-                        continue;
-                    }
-                     */
-
-                    
-                    //I used to call draw here, but when exporting frames I want to have all tiles launch threads to load thier textures and then wait.
-                    //It is much faster than doing one texture at a time
-                    //PORT: Removed
-                    //tile.GetTexture(graphicsDevice, true);
+                     
                     TilesToDraw.Add(tile);
-
-                    //PORT: Modified to return all tiles of lower resolution
-                    
-                    /*
-                    //See if any tiles of alternate resolution are already loaded                    
-                    //Use them if the correct resolution doesn't have a texture, otherwise abort any requests
-                    bool TextureFound = tile.HasTexture; 
-
-                    foreach(int testLevel in UI.State.DownsampleLevels)
-                    {
-                        if(testLevel == roundedDownsample)
-                            continue;
-
-                        string altResName = TileFileName(T.Number, testLevel);
-                        Tile altResTile = Global.TileCache.GetTile(altResName, this.Name);
-                        if (altResTile != null)
-                        {
-                            //Stop the network request if we've already got a texture
-                            //TODO: Once we have a list of textures to draw, send it to TextureConstructor
-                            //and have it abort textures not in the list
-                            if (TextureFound)
-                                altResTile.AbortRequest();
-                            else
-                            {
-                                if (altResTile.HasTexture)
-                                {
-                                    TilesToDraw.Add(altResTile);
-                                    TextureFound = true;
-                                }
-                            }
-                        }
-                    }
-                     */
-                    
                 }
-
-                /*PORT We no longer handle tiles to be loaded and the aborting tiles here
-                else
-                {
-                    if (loadBounds.Intersects(T.CachedControlBounds))
-                    {
-                        string name = TileFileName(T.Number, predictiveDownsample);
-                        Tile tile = Global.TileCache.GetTile(name, this.Name);
-                        if(tile == null)
-                        {
-                            //First create a new tile
-                            int MipMapLevels = 1; //No mip maps
-                            if (roundedDownsample == this.AvailableLevels[AvailableLevels.Length - 1])
-                                MipMapLevels = 0; //Generate mipmaps for lowest res texture
-
-                            VertexPositionNormalTexture[] verticies = Tile.CalculateVerticies(T);
-                            tile = Global.TileCache.ConstructTile(verticies,
-                                                                 T.TriangleIndicies,
-                                                                 name,
-                                                                 TileCacheName(T.Number, predictiveDownsample),
-                                                                 this.Name,
-                                                                 roundedDownsample, 
-                                                                 MipMapLevels,
-                                                                 T.ImageHeight * T.ImageWidth / predictiveDownsample);
-                        }
-
-                        TilesToLoad.Add(tile); 
-                    }
-                    //Sometimes tiles can overlap both zones, so else if is used
-                    else if (abortBounds.Intersects(T.CachedControlBounds) == false)
-                    {
-                        foreach (int testLevel in UI.State.DownsampleLevels)
-                        {
-                            string AbortTileName = TileFileName(T.Number, testLevel);
-                            Tile tile = Global.TileCache.GetTile(AbortTileName, this.Name);
-                            if (tile != null)
-                            {
-                                tile.AbortRequest();
-                            }
-                        }
-                    }
-                }
-                 */
             }
-
-            /*PORT Model does not load textures
-            foreach (Tile tile in TilesToLoad)
-            {
-                //We are asking for a lower quality texture, but tile will keep any existing higher quality textures
-                if (AsynchTextureLoad)
-                    tile.GetTexture(graphicsDevice, true);
-            }
-            
-
-            //TODO: Give a list of tiles to the TileConstructor that are OK to have outstanding load requests.
-            //All other tiles will be aborted
-
-            List<Tile> SafeTiles = new List<Tile>(TilesToLoad.Count + TilesToDraw.Count);
-            SafeTiles.AddRange(TilesToLoad);
-            SafeTiles.AddRange(TilesToDraw);
-
-            Trace.WriteLine("Drawing " + TilesToDraw.Count.ToString() + " Tiles", "VolumeModel");
-
-            return TilesToDraw.ToArray(); 
-            */
 
             return VisibleTiles;
-
         }
     }
 }

@@ -12,6 +12,7 @@ using WebAnnotationModel.Service;
 using WebAnnotationModel.Objects;
 using SqlGeometryUtils;
 using Geometry;
+using AnnotationService.Types;
 
 namespace WebAnnotationModel
 {
@@ -28,7 +29,7 @@ namespace WebAnnotationModel
 
         public void AddObject(LocationObj obj)
         {
-            RTree.Rectangle bbox = obj.MosaicShape.Envelope().ToRTreeRect((float)obj.Z);
+            RTree.Rectangle bbox = obj.MosaicShape.BoundingBox().ToRTreeRect((float)obj.Z);
 
             Debug.Assert(!SpatialSearch.Contains(obj.ID));
             SpatialSearch.Add(bbox, obj.ID);
@@ -95,6 +96,11 @@ namespace WebAnnotationModel
             }
 
             return new ConcurrentDictionary<long, LocationObj>();
+        }
+
+        public LocationObj[] GetLocalObjectsForStructure(long StructureID)
+        {
+            return IDToObject.Values.Where(l => l.ParentID.HasValue && l.ParentID.Value == StructureID).ToArray();
         }
 
         protected override Location[] ProxyGetBySection(AnnotateLocationsClient proxy, long SectionNumber, DateTime LastQuery, out long TicksAtQueryExecute, out long[] deleted_objs)

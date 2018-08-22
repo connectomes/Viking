@@ -16,13 +16,7 @@ namespace ConnectomeDataModel
         [StoredProcedureParameter(System.Data.SqlDbType.Int, Direction = System.Data.ParameterDirection.Input)]
         public int Hops { get; set; }
     }
-
-    [StoredProcedure("SelectNetworkStructureIDs")]
-    class SelectNetworkStructureIDsStoredProcedure : NetworkQueryParameters
-    {
-        
-    }
-
+    
     [StoredProcedure("SelectNetworkDetails")]
     class SelectNetworkDetailsStoredProcedure : NetworkQueryParameters
     {
@@ -41,16 +35,41 @@ namespace ConnectomeDataModel
         
     }
 
+    [StoredProcedure("SelectNetworkChildStructures")]
+    class SelectNetworkChildStructuresProcedure : NetworkQueryParameters
+    {
+
+    }
+
+
+    [StoredProcedure("SelectNetworkStructureIDs")]
+    class SelectNetworkStructureIDsStoredProcedure : NetworkQueryParameters
+    {
+
+    }
+
     [StoredProcedure("SelectNetworkChildStructureIDs")]
     class SelectNetworkChildStructureIDsProcedure : NetworkQueryParameters
     {
        
     }
 
+    [StoredProcedure("SelectNetworkStructureSpatialData")]
+    class SelectNetworkStructureSpatialData : NetworkQueryParameters
+    {
+
+    }
+
+    [StoredProcedure("SelectNetworkChildStructureSpatialData")]
+    class SelectNetworkChildStructureSpatialData : NetworkQueryParameters
+    {
+
+    }
+
     [UserDefinedTableType("integer_list")]
     struct udt_integer_list
     {
-        [UserDefinedTableTypeColumn(1, "ID")]
+        [UserDefinedTableTypeColumn(0, "ID")]
         public long ID { get; set; }
 
         public udt_integer_list(long id)

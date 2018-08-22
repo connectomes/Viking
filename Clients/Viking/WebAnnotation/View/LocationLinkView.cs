@@ -241,7 +241,7 @@ namespace WebAnnotation.ViewModel
             //GridVector2 sourceVolumePosition = sourceMapper.SectionToVolume(A.Position);
             //GridVector2 targetVolumePosition = targetMapper.SectionToVolume(B.Position); 
 
-            LineView line = new LineView(A.Center, B.Center, this.LineWidth, this.Color, LineStyle.Standard);
+            LineView line = new LineView(A.Center, B.Center, this.LineWidth, this.Color, LineStyle.Standard, true);
             return line;
         }
 
@@ -411,7 +411,7 @@ namespace WebAnnotation.ViewModel
                           VikingXNA.Scene scene,
                           RoundLineCode.LumaOverlayRoundLineManager lineManager,
                           Microsoft.Xna.Framework.Graphics.BasicEffect basicEffect,
-                          VikingXNA.AnnotationOverBackgroundLumaEffect overlayEffect,
+                          AnnotationOverBackgroundLumaEffect overlayEffect,
                           IEnumerable<LocationLinkView> listToDraw)
         {
             LineView[] linesToDraw = listToDraw.Select(l => l.lineView).ToArray();

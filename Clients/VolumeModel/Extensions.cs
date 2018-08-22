@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Geometry;
+using System.Diagnostics;
 
 namespace Viking.VolumeModel
 {
@@ -32,8 +33,25 @@ namespace Viking.VolumeModel
                 //We mapped one or two points but not opposite corners.  Guesstimate the region by using the width/height in volume space since we know the mappings have minimal distortion.
                 return EstimateMosaicRectangle(mapped, MosaicRectCorners, VisibleWorldBounds);
             } 
-
-            return new GridRectangle?();
+            else
+            {
+                if(VisibleWorldBounds.Contains(mapper.VolumeBounds.Value))
+                {
+                    return mapper.SectionBounds;
+                }
+                //All four points are outside the control points.  Return the bounding box of the mapped space.
+                //This check is a hack.  When we are zoomed out and can only see a sliver of the volume we need a way to load the visible tiles.
+                else if (VisibleWorldBounds.Intersects(mapper.VolumeBounds.Value) && ((VisibleWorldBounds.Width  > mapper.VolumeBounds.Value.Width / 2.0) || (VisibleWorldBounds.Height > mapper.VolumeBounds.Value.Height / 2.0)))
+                {
+                    return mapper.SectionBounds;
+                }
+                else
+                {
+                    //We must be past the convex hull with no overlap
+                    return new GridRectangle?();
+                    //return mapper.SectionBounds;
+                }
+            }
         }
 
         /// <summary>
@@ -54,6 +72,11 @@ namespace Viking.VolumeModel
             //We don't know the rotation of the rectangle.  We assume the worst case of a 45 degree angle so we multiply width or height by 1.44
             //So we create a grid circle at the point with the radius of Max(Width,Height).  Then we return the bounding box of the GridCircle
 
+            if(IsMapped.Count(b => b) == 3)
+            {
+                return GridCircle.CircleFromThreePoints(ValidPoints).BoundingBox;
+            }
+
             if(OppositeCornersMapped(IsMapped))
             {
                 //Find the center of the opposite corners and the distance.  Create a circle and return the bounding box.
@@ -71,9 +94,9 @@ namespace Viking.VolumeModel
             double CircleRadius = Math.Max(VisibleWorldBounds.Width, VisibleWorldBounds.Height) * 1.44; //Sqrt(2)
             for (int iPoint = 0; iPoint < points.Length; iPoint++)
             {
-                if (IsMapped[0])
+                if (IsMapped[iPoint])
                 {
-                    return new GridCircle(points[0], CircleRadius).BoundingBox;
+                    return new GridCircle(points[iPoint], CircleRadius).BoundingBox;
                 }
             }
 
@@ -89,8 +112,8 @@ namespace Viking.VolumeModel
         private static GridCircle CircleFromTwoPoints(GridVector2 A, GridVector2 B)
         {
             double Distance = GridVector2.Distance(A,B);
-            double X = (A.X + A.X) / 2.0;
-            double Y = (B.Y + B.Y) / 2.0;
+            double X = (A.X + B.X) / 2.0;
+            double Y = (A.Y + B.Y) / 2.0;
 
             return new GridCircle(new GridVector2(X, Y), Distance / 2.0);
         }
@@ -103,6 +126,59 @@ namespace Viking.VolumeModel
         private static bool OppositeCornersMapped(bool[] mappedCorners)
         {
             return (mappedCorners[0] && mappedCorners[2]) || (mappedCorners[1] && mappedCorners[3]);
+        }
+    }
+
+    public static class VolumeToSectionMappingExtensions
+    {
+        public static GridPolygon TryMapShapeSectionToVolume(this Viking.VolumeModel.IVolumeToSectionTransform mapper, GridPolygon shape)
+        {
+            GridVector2[] VolumePositions; 
+
+            bool[] mappedPosition = mapper.TrySectionToVolume(shape.ExteriorRing, out VolumePositions);
+            if (mappedPosition.Any(success => success == false)) //Remove locations we can't map
+            {
+                Trace.WriteLine("MapShapeSectionToVolume: Shape #" + shape.ToString() + " was unmappable.", "WebAnnotation");
+                return null;
+            }
+
+            GridPolygon transformed_polygon = new GridPolygon(VolumePositions);
+
+            if (shape.HasInteriorRings)
+            {
+                IEnumerable<GridPolygon> transformedPolygons = shape.InteriorPolygons.Select(ip => mapper.TryMapShapeSectionToVolume(ip));
+                foreach(GridPolygon inner_poly in transformedPolygons)
+                {
+                    transformed_polygon.AddInteriorRing(inner_poly);
+                }
+            }
+
+            return transformed_polygon;
+        }
+
+        public static GridPolygon TryMapShapeVolumeToSection(this Viking.VolumeModel.IVolumeToSectionTransform mapper, GridPolygon shape)
+        {
+            GridVector2[] SectionPositions;
+
+            bool[] mappedPosition = mapper.TryVolumeToSection(shape.ExteriorRing, out SectionPositions);
+            if (mappedPosition.Any(success => success == false)) //Remove locations we can't map
+            {
+                Trace.WriteLine("MapShapeSectionToVolume: Shape #" + shape.ToString() + " was unmappable.", "WebAnnotation");
+                return null;
+            }
+
+            GridPolygon transformed_polygon = new GridPolygon(SectionPositions);
+
+            if (shape.HasInteriorRings)
+            {
+                IEnumerable<GridPolygon> transformedPolygons = shape.InteriorPolygons.Select(ip => mapper.TryMapShapeVolumeToSection(ip));
+                foreach (GridPolygon inner_poly in transformedPolygons)
+                {
+                    transformed_polygon.AddInteriorRing(inner_poly);
+                }
+            }
+
+            return transformed_polygon;
         }
     }
 }

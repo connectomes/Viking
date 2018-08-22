@@ -89,6 +89,17 @@ namespace Viking.Common
         }
 
         /// <summary>
+        /// Returns true if the cache contains the key at the time of calling. 
+        /// The cache is concurrent so the result may change with later calls
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool ContainsKey(KEY key)
+        {
+            return dictEntries.ContainsKey(key);
+        }
+
+        /// <summary>
         /// Creates a file for the texture passed.
         /// </summary>
         /// <param name="filename"></param>
@@ -142,6 +153,26 @@ namespace Viking.Common
             }
 
             return Fetch(dictEntry);
+        }
+
+        /// <summary>
+        /// Remove the entry from the cache
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool Remove(KEY key)
+        {
+            CACHEENTRY value;
+            bool removed = dictEntries.TryRemove(key, out value);
+            if(removed)
+            {
+                long size = value.Size;
+                ChangeCacheSize(-size);
+
+                return OnRemoveEntry(value);
+            }
+
+            return removed;
         }
 
         /// <summary>
@@ -263,6 +294,7 @@ namespace Viking.Common
 
             EntryListCopy = null;
         }
+
 
         /// <summary>
         /// Remove an entry from the cache, does not lock

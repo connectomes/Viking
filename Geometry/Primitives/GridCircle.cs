@@ -7,18 +7,29 @@ using System.Text;
 namespace Geometry
 {
     [Serializable]
-    public struct GridCircle
+    public struct GridCircle : IShape2D, ICircle2D
     {
         public GridVector2 Center;
         public double Radius;
         public double RadiusSquared;
 
+        public GridCircle(double X, double Y, double radius) : this(new GridVector2(X, Y), radius)
+        { }
+
         public GridCircle(GridVector2 center, double radius)
         {
             this.Center = center;
             this.Radius = radius;
+
+            if (double.IsInfinity(radius) || double.IsNaN(radius))
+                throw new ArgumentException("Radius cannot be infinite or NaN");
+
             this.RadiusSquared = radius * radius;
             _HashCode = new int?();
+        }
+
+        public GridCircle(IPoint2D center, double radius) : this(new GridVector2(center.X, center.Y), radius)
+        {
         }
 
         public override string ToString()
@@ -143,9 +154,41 @@ namespace Geometry
             {
                 return new GridRectangle(this.Center, this.Radius);
             }
-        }   
+        }
 
-        public bool Contains(GridVector2 p)
+        public double Area
+        {
+            get
+            {
+                return this.RadiusSquared * Math.PI;
+            }
+        }
+
+        public ShapeType2D ShapeType
+        {
+            get
+            {
+                return ShapeType2D.CIRCLE;
+            }
+        }
+
+        IPoint2D ICircle2D.Center
+        {
+            get
+            {
+                return this.Center;
+            }
+        }
+
+        double ICircle2D.Radius
+        {
+            get
+            {
+                return this.Radius;
+            }
+        }
+        
+        public bool Contains(IPoint2D p)
         {
             //return GridVector2.Distance(p, this.Center) <= this.Radius;
             
@@ -153,6 +196,14 @@ namespace Geometry
             double YDist = p.Y - this.Center.Y;
 
             return (XDist * XDist) + (YDist * YDist) <= this.RadiusSquared; 
+        }
+
+        public bool Contains(GridVector2 p)
+        {
+            double XDist = p.X - this.Center.X;
+            double YDist = p.Y - this.Center.Y;
+
+            return (XDist * XDist) + (YDist * YDist) <= this.RadiusSquared;
         }
 
         /// <summary>
@@ -171,15 +222,63 @@ namespace Geometry
             return (XDist * XDist) + (YDist * YDist) <= CombinedRadiusSquared;
         }
 
-        public bool Intersects(GridCircle c)
+        public bool Intersects(ICircle2D c)
         {
-            
+            return this.Intersects(c.Convert());
+        }
+
+        public bool Intersects(GridCircle c)
+        { 
             double XDist = c.Center.X - this.Center.X;
             double YDist = c.Center.Y - this.Center.Y;
             double CombinedRadiusSquared = this.Radius + c.Radius;
             CombinedRadiusSquared *= CombinedRadiusSquared;
 
             return (XDist * XDist) + (YDist * YDist) <= CombinedRadiusSquared;
+        }
+
+        public bool Intersects(ILineSegment2D l)
+        {
+            GridLineSegment line = l.Convert();
+            return this.Intersects(line);
+        }
+
+        public bool Intersects(GridLineSegment line)
+        {
+            return CircleIntersectionExtensions.Intersects(this, line);
+        }
+
+        public bool Intersects(ITriangle2D t)
+        {
+            GridTriangle tri = t.Convert();
+            return this.Intersects(tri);
+        }
+
+        public bool Intersects(GridTriangle tri)
+        {
+            return CircleIntersectionExtensions.Intersects(this, tri);
+        }
+
+        public bool Intersects(IPolygon2D p)
+        {
+            GridPolygon poly = p.Convert();
+            return this.Intersects(poly);
+        }
+
+        public bool Intersects(GridPolygon poly)
+        {
+            return CircleIntersectionExtensions.Intersects(this, poly);
+        }
+
+        public bool Intersects(IRectangle r)
+        {
+            GridRectangle rect = r.Convert();
+            return this.Intersects(rect);
+        }
+
+        public bool Intersects(GridRectangle rect)
+        {
+            return CircleIntersectionExtensions.Intersects(this, rect);
         }
 
 
@@ -199,6 +298,22 @@ namespace Geometry
 
             return _HashCode.Value; 
         }
+         
+
+        public bool Intersects(IShape2D shape)
+        {
+            return ShapeExtensions.CircleIntersects(this, shape);
+        }
+
+        public IShape2D Translate(IPoint2D offset)
+        {
+            return this.Translate(offset.Convert());
+        }
+
+        public GridCircle Translate(GridVector2 offset)
+        {
+            return new GridCircle(this.Center + offset, this.Radius);
+        }
 
         public static bool operator ==(GridCircle A, GridCircle B)
         {
@@ -211,6 +326,16 @@ namespace Geometry
             return !(A == B);
         }
 
-        
+        /// <summary>
+        /// Given a normalized height in the range -1,1 on the Y-axis return how wide the circle is in the X-axis
+        /// </summary>
+        /// <param name=""></param>
+        /// <returns></returns>
+        public static double WidthAtHeight(double n)
+        {
+            double angle = Math.Asin(n);
+            double width = Math.Cos(angle);
+            return Math.Abs(width);
+        }
     }
 }

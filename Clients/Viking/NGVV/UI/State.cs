@@ -26,6 +26,12 @@ namespace Viking.UI
 
         static public Viking.UI.Forms.SectionViewerForm ViewerForm;
 
+        static public void InvalidateViewerControl()
+        {
+            if(ViewerControl != null)
+                ViewerControl.Invalidate();
+        }
+
         /// <summary>
         /// The section viewer control for creating commands
         /// 
@@ -50,8 +56,9 @@ namespace Viking.UI
 
         //Stores userAccessLevel for the profided credentials: Include: Admin, Modify, Read
         static public string userAccessLevel;
-        
+
         //User credentials used during authentication
+        static public IdentityModel.Client.TokenResponse UserBearerToken = null;
 
         static public System.Net.NetworkCredential UserCredentials = new System.Net.NetworkCredential("anonymous", "connectome");
 

@@ -52,7 +52,7 @@ namespace Viking.VolumeModel
             GridQuad VisibleQuad = null; 
 
             //Add any corners of the VisibleBounds that we can transform to the list of points
-            List<MappingGridVector2> VisiblePoints = VisibleBoundsCorners(VolumeTransform, VisibleBounds);
+            List<MappingGridVector2> VisiblePoints = VisibleBoundsCorners(VisibleBounds);
             if (VisiblePoints.Count != 4)
             {
                 //If we can't map all four corners then add all the points from the transform falling inside the visible rectangle or 
@@ -154,7 +154,7 @@ namespace Viking.VolumeModel
                     
                     //                   Trace.WriteLine(TextureFileName, "VolumeModel"); 
                     Tile tile = Global.TileCache.Fetch(UniqueID);
-                    if (tile == null)
+                    if (tile == null && Global.TileCache.ContainsKey(UniqueID) == false)
                     {
                         //First create a new tile
                         int MipMapLevels = 1; //No mip maps
@@ -183,7 +183,8 @@ namespace Viking.VolumeModel
                                                             MipMapLevels);
                     }
                     
-                    TilesToDraw.Add(tile);
+                    if(tile != null)
+                        TilesToDraw.Add(tile);
                 }
             }
 

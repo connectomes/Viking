@@ -23,7 +23,8 @@ namespace XNATestbed
         CURVE,
         LINESTYLES,
         CURVESTYLES,
-        CLOSEDCURVE
+        CLOSEDCURVE,
+        POLYGON2D
     };
 
     /// <summary>
@@ -47,8 +48,9 @@ namespace XNATestbed
         LineViewStylesTest lineStyleTest = new LineViewStylesTest();
         CurveViewStylesTest curveStyleTest = new CurveViewStylesTest();
         ClosedCurveViewTest closedCurveTest = new ClosedCurveViewTest();
+        Polygon2DTest polygon2DTest = new Polygon2DTest();
 
-        TestMode Mode = TestMode.CLOSEDCURVE;
+        TestMode Mode = TestMode.POLYGON2D;
 
         public XNATestBedMain()
         {
@@ -99,12 +101,13 @@ namespace XNATestbed
 
             InitializeEffects();
 
-            //curveTest.Init(this);
-            //curveViewTest.Init(this);
-            //labelTest.Init(this);
-            //lineStyleTest.Init(this);
-            //curveStyleTest.Init(this);
+            curveTest.Init(this);
+            curveViewTest.Init(this);
+            labelTest.Init(this);
+            lineStyleTest.Init(this);
+            curveStyleTest.Init(this);
             closedCurveTest.Init(this);
+            polygon2DTest.Init(this);
         }
 
         /// <summary>
@@ -136,9 +139,9 @@ namespace XNATestbed
 
             Matrix WorldViewProj = Scene.WorldViewProj;
              
-            Effect AnnotationOverlayShader = Content.Load<Effect>("AnnotationOverlayShader");
-            this.overlayEffect = new AnnotationOverBackgroundLumaEffect(AnnotationOverlayShader);
+            this.overlayEffect = DeviceEffectsStore<AnnotationOverBackgroundLumaEffect>.GetOrCreateForDevice(this.GraphicsDevice, this.Content);
             this.overlayEffect.WorldViewProjMatrix = WorldViewProj;
+
 
             //this.channelEffect.WorldMatrix = worldMatrix;
             //this.channelEffect.ProjectionMatrix = projectionMatrix;
@@ -178,6 +181,8 @@ namespace XNATestbed
                 this.Mode = TestMode.CURVESTYLES;
             if (Keyboard.GetState().IsKeyDown(Keys.F6))
                 this.Mode = TestMode.CLOSEDCURVE;
+            if (Keyboard.GetState().IsKeyDown(Keys.F7))
+                this.Mode = TestMode.POLYGON2D;
         }
 
         private void ProcessGamepad()
@@ -235,6 +240,9 @@ namespace XNATestbed
                 case TestMode.CLOSEDCURVE:
                     closedCurveTest.Draw(this);
                     break;
+                case TestMode.POLYGON2D:
+                    polygon2DTest.Draw(this);
+                    break;
             }
             
             spriteBatch.End();
@@ -248,7 +256,7 @@ namespace XNATestbed
 
     public class CurveTest
     {
-        public Texture2D labelTexture;
+        public RenderTarget2D labelTexture;
 
         double CurveAngle = 3.14159 / 4.0;
 
@@ -268,6 +276,11 @@ namespace XNATestbed
             Matrix ViewProjMatrix = scene.ViewProj;
             string TechniqueName = "AnimatedLinear";
             float time = DateTime.Now.Millisecond / 1000.0f;
+
+            if(labelTexture.IsContentLost)
+            {
+                labelTexture = CreateTextureForLabel("The quick brown fox jumps over the lazy dog", window.GraphicsDevice, window.spriteBatch, window.fontArial);
+            }
             
             RoundLine line = new RoundLine(new Vector2((float)(-50.0f * Math.Cos(CurveAngle)), (float)(-50.0f * Math.Sin(CurveAngle)) + 50.0f),
                                            new Vector2((float)(50.0f * Math.Cos(CurveAngle)), (float)(50.0f * Math.Sin(CurveAngle)) + 50.0f));
@@ -279,7 +292,7 @@ namespace XNATestbed
             window.curveManager.Draw(new RoundCurve.RoundCurve[] { curve }, 16, Color.Blue, ViewProjMatrix, time, TechniqueName);
         }
          
-        public Texture2D CreateTextureForLabel(string label, GraphicsDevice device,
+        public RenderTarget2D CreateTextureForLabel(string label, GraphicsDevice device,
                               SpriteBatch spriteBatch,
                               SpriteFont font)
         {
@@ -328,7 +341,7 @@ namespace XNATestbed
         public void Init(XNATestBedMain window)
         {
             GridVector2[] cps = CreateTestCurve3(0, 100);
-            curveView = new CurveView(cps, Color.Red, false);
+            curveView = new CurveView(cps, Color.Red, false, 10);
             leftCurveLabel = new CurveLabel("The quick brown fox jumps over the lazy dog", cps, Color.Black, false);
             rightCurveLabel = new CurveLabel("C 1485", cps, Color.PaleGoldenrod, false);
         }
@@ -463,7 +476,7 @@ namespace XNATestbed
             {
                 GridVector2 source = new GridVector2(MinX, Y);
                 GridVector2 dest = new GridVector2(MaxX, Y);
-                listLineViews.Add(new LineView(source, dest, YStep / 1.5, Color.Blue, style));
+                listLineViews.Add(new LineView(source, dest, YStep / 1.5, Color.Blue, style, false));
 
                 Y += YStep;
 
@@ -511,7 +524,7 @@ namespace XNATestbed
                 GridVector2 mid = new GridVector2(MinX + (MaxX - MinX / 2.0), Y - 30);
                 GridVector2 dest = new GridVector2(MaxX, Y);
 
-                listLineViews.Add(new CurveView(new GridVector2[] { source, mid, dest }, Color.Blue, false, lineWidth: YStep / 1.5, lineStyle: style));
+                listLineViews.Add(new CurveView(new GridVector2[] { source, mid, dest }, Color.Blue, false, 10, lineWidth: YStep / 1.5, lineStyle: style));
 
                 Y += YStep;
 
@@ -543,7 +556,7 @@ namespace XNATestbed
         public void Init(XNATestBedMain window)
         {
             GridVector2[] cps = CreateTestCurve(90, 190);
-            curveView = new CurveView(cps, Color.Red, true, null, lineWidth: 64, controlPointRadius: 16, lineStyle: LineStyle.HalfTube);
+            curveView = new CurveView(cps, Color.Red, true, 10, texture: null, lineWidth: 64, controlPointRadius: 16, lineStyle: LineStyle.HalfTube);
             curveLabel = new CurveLabel("The quick brown fox jumps over the lazy dog", cps, Color.Black, true); 
         }
 

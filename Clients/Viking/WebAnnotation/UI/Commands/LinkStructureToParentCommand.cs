@@ -14,6 +14,7 @@ using WebAnnotation.View;
 using WebAnnotationModel;
 using VikingXNAGraphics;
 using System.Collections.ObjectModel;
+using VikingXNAWinForms;
 
 namespace WebAnnotation.UI.Commands
 {
@@ -154,7 +155,7 @@ namespace WebAnnotation.UI.Commands
                 return;
 
             if (locView != null)
-                LocationObjRenderer.DrawCanvasView(new LocationCanvasView[] { locView }, graphicsDevice, basicEffect, Parent.annotationOverlayEffect, Parent.LumaOverlayLineManager, Parent.LumaOverlayCurveManager, scene, (int)locView.Z);
+                LocationObjRenderer.DrawCanvasView(new LocationCanvasView[] { locView }, graphicsDevice, basicEffect, Parent.AnnotationOverlayEffect, Parent.LumaOverlayLineManager, Parent.LumaOverlayCurveManager, scene, (int)locView.Z);
             else
                 GlobalPrimitives.DrawCircle(graphicsDevice, basicEffect, transformedPos, putativeLoc.Radius, linecolor);
 
@@ -170,9 +171,9 @@ namespace WebAnnotation.UI.Commands
                 target = this.oldWorldPosition;
             }
             
-            LineView line = new LineView(transformedPos, target, 16.0, Microsoft.Xna.Framework.Color.White, LineStyle.Tubular);
+            LineView line = new LineView(transformedPos, target, 16.0, Microsoft.Xna.Framework.Color.White, LineStyle.Tubular, false);
             
-            RoundLineManager lineManager = VikingXNA.DeviceEffectsStore<LumaOverlayRoundLineManager>.TryGet(graphicsDevice);
+            RoundLineManager lineManager = VikingXNAGraphics.DeviceEffectsStore<LumaOverlayRoundLineManager>.TryGet(graphicsDevice);
             if (lineManager == null)
                 return;
 

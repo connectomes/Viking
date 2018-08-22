@@ -126,9 +126,42 @@ namespace AnnotationVizLib
             {"Vericosity Cap", "bool"},
             {"Untraceable","bool" },
             {"Tags", "string" },
-            {"StructureTags", "string" }
-
+            {"StructureTags", "string" },
+            {"SourceLabel", "string" },
+            {"TargetLabel", "string" },
+            {"NumberOfCells", "metric" },
+            {"InputTypeCount", "metric" },
+            {"OutputTypeCount", "metric" },
+            {"BidirectionalTypeCount", "metric" },
+            {"SourceParentStructures", "string" },
+            {"ConnectionSourceStructures", "string" },
+            {"TargetParentStructures", "string" },
+            {"ConnectionTargetStructures", "string" },
+            {"%OccurenceInSourceCells", "metric" },
+            {"%OccurenceInTargetCells", "metric" },
+            {"%ofSourceTypeOutput", "metric" },
+            {"%ofTargetTypeInput", "metric" },
+            {"%ofSourceTypeBidirectional", "metric" },
+            {"%ofTargetTypeBidirectional", "metric" },
+            {"Avg#OfOutputsPerSource", "metric" },
+            {"Avg#OfInputsPerTarget", "metric" },
+            {"StdDevOfInputsPerTarget", "metric" },
+            {"StdDevOfOutputsPerSource", "metric" },
+            {"edgeType", "string" },
+            {"MinZ", "metric" },
+            {"MaxZ", "metric" },
+            {"MaxDimension", "metric"},
+            {"Area", "metric" },
+            {"Volume", "metric" },
+            {"TotalSourceArea", "metric" },
+            {"TotalTargetArea", "metric" }
         };
+
+        public static SortedSet<string> AttributesExcludedFromTLP = new SortedSet<string>(new string[]
+        {
+            "ConvexHull",
+            "BoundingRect"
+        });
 
         public static SortedDictionary<string, string> DefaultForAttribute = new SortedDictionary<string, string>()
         {

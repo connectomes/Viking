@@ -11,6 +11,8 @@ using System.Diagnostics;
 using System.Collections.Specialized;
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using AnnotationService.Types;
+using Microsoft.SqlServer.Types;
 
 
 namespace WebAnnotationModelTest
@@ -24,7 +26,7 @@ namespace WebAnnotationModelTest
         [TestInitialize]
         public void Init()
         {
-            WebAnnotationModel.State.EndpointAddress = new EndpointAddress("https://webdev.connectomes.utah.edu/RC1Test/Annotation/Service.svc");
+            WebAnnotationModel.State.Endpoint = new Uri("https://webdev.connectomes.utah.edu/RC1Test/Annotation/Service.svc");
             WebAnnotationModel.State.UserCredentials = TestCredentials;
 
             System.Net.ServicePointManager.ServerCertificateValidationCallback =
@@ -37,7 +39,7 @@ namespace WebAnnotationModelTest
 
         private LocationObj NewPopulatedLocation(StructureObj parent)
         {
-            return  new LocationObj(parent, new Geometry.GridVector2(0, 0), new Geometry.GridVector2(0, 0), 0);
+            return  new LocationObj(parent, SqlGeometry.Point(0, 0, 0), SqlGeometry.Point(0, 0, 0), 0, LocationType.POINT);
         }
 
         [TestMethod]
@@ -218,9 +220,11 @@ namespace WebAnnotationModelTest
             Assert.IsTrue(targetStruct.LinksCopy.Contains(link));
 
             //Check that we can adjust link properties
-            link.Bidirectional = !link.Bidirectional;
+            /*We no longer toggle Bidirectional.  We delete and recreate the link.
+             * link.Bidirectional = !link.Bidirectional;
             Assert.AreEqual(link.DBAction, DBACTION.UPDATE);
             Store.StructureLinks.Save();
+            */
 
             //Ensure our change was submitted, this should reset DBAction
             Assert.AreEqual(link.DBAction, DBACTION.NONE);
@@ -274,11 +278,10 @@ namespace WebAnnotationModelTest
             Assert.AreEqual(obj.DBAction, DBACTION.NONE);
             Geometry.GridVector2 oldPosition = obj.VolumePosition; 
             Geometry.GridVector2 newPosition = new Geometry.GridVector2(1,1);
-
-
-            obj.VolumePosition = newPosition;
-            LocationEventLog.PopObjectPropertyChangingEvent(obj, "VolumePosition");            
-            LocationEventLog.PopObjectPropertyChangedEvent(obj, "VolumePosition");
+             
+            //obj.VolumeShape = newPosition;
+            //LocationEventLog.PopObjectPropertyChangingEvent(obj, "VolumePosition");            
+            //LocationEventLog.PopObjectPropertyChangedEvent(obj, "VolumePosition");
 
             //VolumePosition is special because it is not automatically updated.
             Assert.AreEqual(obj.DBAction, DBACTION.NONE);
@@ -301,7 +304,7 @@ namespace WebAnnotationModelTest
 
             StructureTypeObj cellType = Store.StructureTypes.GetObjectByID(1);
             StructureObj structObj = new StructureObj(cellType); 
-            LocationObj locObj = new LocationObj(structObj, new Geometry.GridVector2(0,0), new Geometry.GridVector2(0,0), 1);
+            LocationObj locObj = new LocationObj(structObj, SqlGeometry.Point(0,0,0), SqlGeometry.Point(0,0,0), 1, LocationType.POINT);
             try
             {
                 structObj = Store.Structures.Create(structObj, locObj, out locObj);
@@ -314,7 +317,7 @@ namespace WebAnnotationModelTest
                 TestLocationPropertyEvents(locObj); 
 
                 //
-                LocationObj linkedLoc = new LocationObj(structObj, new Geometry.GridVector2(1, 1), new Geometry.GridVector2(1, 1), 2);
+                LocationObj linkedLoc = new LocationObj(structObj, SqlGeometry.Point(1, 1, 0), SqlGeometry.Point(1, 1, 0), 2, LocationType.POINT);
                 linkedLoc = Store.Locations.Create(linkedLoc, new long[] { locObj.ID });
 
                 LocationEventLog.PopObjectAddedEvent(linkedLoc);

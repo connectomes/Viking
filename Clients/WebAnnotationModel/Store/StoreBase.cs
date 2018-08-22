@@ -124,7 +124,7 @@ namespace WebAnnotationModel
     public abstract class StoreBase<PROXY, INTERFACE, OBJECT, WCFOBJECT> : INotifyCollectionChanged
         where INTERFACE : class        
         where PROXY : System.ServiceModel.ClientBase<INTERFACE>
-        where WCFOBJECT : DataObject, new()
+        where WCFOBJECT : AnnotationService.Types.DataObject, new()
         where OBJECT : WCFObjBase<WCFOBJECT>, new()
     {
         
@@ -171,7 +171,9 @@ namespace WebAnnotationModel
 
         protected void InvokeEventAction(Action a, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "")
         {
+#if DEBUG
             System.Diagnostics.Trace.WriteLine(string.Format("{0}.{1} Invoking Event Action", this.GetType().FullName, memberName));
+#endif
             if(State.UseAsynchEvents)
             {
                 System.Threading.Tasks.Task.Run(a);
@@ -268,7 +270,7 @@ namespace WebAnnotationModel
                 //Because we are handling collection changes these events need to appear in order, however there are
                 //too many cascading events...  RIght now the worst case is a location doesn't show in the UI as expected.
                 //This can be fixed by implementing the replaced collection change action for delete instead of using
-                //remove and then add.  When we seperate the operation the order can be flipped.
+                //remove and then add.  When we separate the operation the order can be flipped.
                 /*
                 Action a = new Action(() => OnCollectionChanged(this, e));
                 if (State.UseAsynchEvents)
@@ -293,7 +295,7 @@ namespace WebAnnotationModel
         }*/
 
 
-        #endregion 
+#endregion
 
         protected void ShowStandardExceptionMessage(Exception e)
         {
@@ -302,12 +304,12 @@ namespace WebAnnotationModel
             //System.Windows.Forms.MessageBox.Show("An error occurred:\n" + e.Message, "WebAnnotation");
         }
 
-        #region Proxy Calls
+#region Proxy Calls
 
 
-        #endregion
+#endregion
 
-        #region INotifyCollectionChanged Members
+#region INotifyCollectionChanged Members
 
 
         public event NotifyCollectionChangedEventHandler OnCollectionChanged;
@@ -317,7 +319,7 @@ namespace WebAnnotationModel
             remove { OnCollectionChanged -= value;  }
         }
 
-        #endregion
+#endregion
 
         
     }

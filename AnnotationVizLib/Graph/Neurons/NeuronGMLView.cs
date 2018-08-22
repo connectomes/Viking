@@ -21,7 +21,7 @@ namespace AnnotationVizLib
             
             NodeAttribs.Add("StructureURL", string.Format("{0}/OData/ConnectomeData.svc/Structures({1}L)", this.VolumeURL, node.Key));
 
-            GMLnode.AddAttributes(NodeAttribs);
+            GMLnode.AddStandardizedAttributes(NodeAttribs);
 
             return GMLnode;
         }
@@ -38,7 +38,7 @@ namespace AnnotationVizLib
         {
             StringBuilder sb = new StringBuilder();
             //sb.Append(edge.SynapseType);
-            foreach (AnnotationService.StructureLink link in edge.Links)
+            foreach (IStructureLink link in edge.Links)
             {
                 sb.Append("\t" + LinkString(link));
             }
@@ -46,7 +46,7 @@ namespace AnnotationVizLib
             return sb.ToString();
         }
 
-        public static string LinkString(AnnotationService.StructureLink link)
+        public static string LinkString(IStructureLink link)
         {
             return link.SourceID + " -> " + link.TargetID;
         }
@@ -63,7 +63,7 @@ namespace AnnotationVizLib
             try
             {
                 GMLedge = this.addEdge(edge.SourceNodeKey, edge.TargetNodeKey);
-                if(edge.Bidirectional && !edge.IsLoop)
+                if(!edge.Directional && !edge.IsLoop)
                 {
                     GMLReverseEdge = this.addEdge(edge.TargetNodeKey, edge.SourceNodeKey);
                 }                
@@ -75,10 +75,10 @@ namespace AnnotationVizLib
             }
 
             IDictionary<string, string> EdgeAttribs = AttributesForEdge(edge);
-            GMLedge.AddAttributes(EdgeAttribs);
+            GMLedge.AddStandardizedAttributes(EdgeAttribs);
 
             if (GMLReverseEdge != null)
-                GMLReverseEdge.AddAttributes(EdgeAttribs);
+                GMLReverseEdge.AddStandardizedAttributes(EdgeAttribs);
 
             return;
         }
@@ -87,7 +87,7 @@ namespace AnnotationVizLib
         {
             Dictionary<string, string> EdgeAttribs = new Dictionary<string, string>();
             EdgeAttribs.Add("edgeType", edge.SynapseType);
-            EdgeAttribs.Add("Bidirectional", edge.Bidirectional.ToString());
+            EdgeAttribs.Add("Directional", (edge.Directional).ToString());
             return EdgeAttribs;
         }
 

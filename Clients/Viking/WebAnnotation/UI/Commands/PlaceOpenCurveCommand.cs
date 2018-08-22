@@ -10,6 +10,7 @@ using WebAnnotation.View;
 using VikingXNAGraphics;
 using SqlGeometryUtils;
 using System.Collections.ObjectModel;
+using VikingXNAWinForms;
 
 namespace WebAnnotation.UI.Commands
 {
@@ -91,7 +92,14 @@ namespace WebAnnotation.UI.Commands
             if (this.Verticies.Length < 3 || curve_verticies == null || this.curve_verticies.ControlPoints.Length < 3)
                 return false;
 
-            return this.curve_verticies.ControlPoints.ToPolygon().STIsValid().IsTrue;
+            try
+            {
+                return this.curve_verticies.ControlPoints.ToPolygon().STIsValid().IsTrue;
+            }
+            catch(ArgumentException e)
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -109,18 +117,22 @@ namespace WebAnnotation.UI.Commands
             if (worldPos != vert_stack.Peek())
             {
                 CurveViewControlPoints curveVerticies = AppendControlPointToCurve(worldPos);
-                GridLineSegment[] proposed_back_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(NumVerticies , NumVerticies+1));
-                GridLineSegment[] proposed_front_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(0,1));
-                GridLineSegment[] existing_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(1, NumVerticies));
+                GridVector2[] controlPoints = Verticies;
+                GridLineSegment[] proposed_back_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(controlPoints.Last() , worldPos));
+                GridLineSegment[] proposed_front_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(worldPos, controlPoints[0]));
+                GridLineSegment[] existing_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(controlPoints[0], controlPoints.Last()));
 
-                GridVector2[] intersections = proposed_front_curve_segments.Select(pcs => existing_curve_segments.IntersectionPoint(pcs)).Where(p => p.HasValue).Select(p => p.Value).ToArray();
+                proposed_front_curve_segments = proposed_front_curve_segments.ShortenLastVertex();
+                existing_curve_segments = existing_curve_segments.ShortenLastVertex();
+
+                GridVector2[] intersections = proposed_front_curve_segments.Select(pcs => existing_curve_segments.IntersectionPoint(pcs, false)).Where(p => p.HasValue).Select(p => p.Value).ToArray();
                 if (intersections.Length > 0)
                 {
                     retval = intersections.First();
                     return retval;
                 }
 
-                intersections = proposed_back_curve_segments.Select(pcs => existing_curve_segments.IntersectionPoint(pcs)).Where(p => p.HasValue).Select(p => p.Value).ToArray();
+                intersections = proposed_back_curve_segments.Select(pcs => existing_curve_segments.IntersectionPoint(pcs, false)).Where(p => p.HasValue).Select(p => p.Value).ToArray();
                 if (intersections.Length > 0)
                 {
                     retval = intersections.First();
@@ -227,13 +239,24 @@ namespace WebAnnotation.UI.Commands
 
             if (worldPos != vert_stack.Peek())
             {
-                CurveViewControlPoints curveVerticies = AppendControlPointToCurve(worldPos);
-                GridLineSegment[] proposed_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(NumVerticies, NumVerticies+1));
-                GridLineSegment[] existing_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(0, NumVerticies - 1));
+                try
+                {
+                    CurveViewControlPoints curveVerticies = AppendControlPointToCurve(worldPos);
+                    GridVector2[] controlPoints = Verticies;
+                    GridLineSegment[] proposed_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(controlPoints.Last(), worldPos));
+                    GridLineSegment[] existing_curve_segments = GridLineSegment.SegmentsFromPoints(curveVerticies.CurvePointsBetweenControlPoints(controlPoints[0], controlPoints.Last()));
 
-                GridVector2[] intersections = proposed_curve_segments.Select(pcs => existing_curve_segments.IntersectionPoint(pcs)).Where(p => p.HasValue).Select(p => p.Value).ToArray();
-                if (intersections.Length > 0)
-                    retval = intersections.First();
+                    existing_curve_segments = existing_curve_segments.ShortenLastVertex();
+
+                    GridVector2[] intersections = proposed_curve_segments.Select(pcs => existing_curve_segments.IntersectionPoint(pcs, false)).Where(p => p.HasValue).Select(p => p.Value).ToArray();
+                    if (intersections.Length > 0)
+                        retval = intersections.First();
+                }
+                
+                catch(ArgumentException)
+                {
+                    return new GridVector2?();
+                }                
             }
 
             return retval;
@@ -400,6 +423,7 @@ namespace WebAnnotation.UI.Commands
         }
 
         
+        
 
         protected override void OnMouseMove(object sender, MouseEventArgs e)
         {
@@ -503,9 +527,9 @@ namespace WebAnnotation.UI.Commands
                 else
                     pushed_point = false;
 
-                CurveView curveView = new CurveView(vert_stack.ToArray(), this.LineColor, !this.IsOpen, lineWidth: this.LineWidth, lineStyle: Style, controlPointRadius: this.ControlPointRadius);
+                CurveView curveView = new CurveView(vert_stack.ToArray(), this.LineColor, !this.IsOpen, Global.NumCurveInterpolationPoints(!this.IsOpen), lineWidth: this.LineWidth, lineStyle: Style, controlPointRadius: this.ControlPointRadius);
                 curveView.Color.SetAlpha(this.ShapeIsValid() ? 1 : 0.25f);
-                CurveView.Draw(graphicsDevice, scene, Parent.LumaOverlayCurveManager, basicEffect, Parent.annotationOverlayEffect, 0, new CurveView[] { curveView } );
+                CurveView.Draw(graphicsDevice, scene, Parent.LumaOverlayCurveManager, basicEffect, Parent.AnnotationOverlayEffect, 0, new CurveView[] { curveView } );
                 //GlobalPrimitives.DrawPolyline(Parent.LineManager, basicEffect, DrawnLineVerticies, this.LineWidth, this.LineColor);
 
                 if(pushed_point)
@@ -517,14 +541,14 @@ namespace WebAnnotation.UI.Commands
             {
                 if (this.Verticies.Length > 1)
                 {
-                    CurveView curveView = new CurveView(this.Verticies.ToArray(), this.LineColor, !this.IsOpen, lineWidth: this.LineWidth, lineStyle: Style, controlPointRadius: this.ControlPointRadius);
+                    CurveView curveView = new CurveView(this.Verticies.ToArray(), this.LineColor, !this.IsOpen, Global.NumCurveInterpolationPoints(!this.IsOpen), lineWidth: this.LineWidth, lineStyle: Style, controlPointRadius: this.ControlPointRadius);
                     curveView.Color.SetAlpha(this.ShapeIsValid() ? 1 : 0.25f);
-                    CurveView.Draw(graphicsDevice, scene, Parent.LumaOverlayCurveManager, basicEffect, Parent.annotationOverlayEffect, 0, new CurveView[] { curveView });
+                    CurveView.Draw(graphicsDevice, scene, Parent.LumaOverlayCurveManager, basicEffect, Parent.AnnotationOverlayEffect, 0, new CurveView[] { curveView });
                 }
                 else
                 {
                     CircleView view = new CircleView(new GridCircle(this.Verticies.First(), this.LineWidth / 2.0), this.LineColor);
-                    CircleView.Draw(graphicsDevice, scene, basicEffect, this.Parent.annotationOverlayEffect, new CircleView[] { view });
+                    CircleView.Draw(graphicsDevice, scene, basicEffect, this.Parent.AnnotationOverlayEffect, new CircleView[] { view });
                 } 
             } 
         }

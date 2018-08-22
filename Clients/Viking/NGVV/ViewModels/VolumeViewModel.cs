@@ -8,71 +8,7 @@ using Geometry;
 
 namespace Viking.ViewModels
 {
-    public class VolumeToSectionTransform : IVolumeToSectionTransform
-    {
-        readonly string _Name;
-        readonly Geometry.ITransform Transform;
-
-        public VolumeToSectionTransform(string Name, ITransform transform)
-        {
-            this._Name = Name;
-            this.Transform = transform;
-        }
-
-        public override string ToString()
-        {
-            return _Name;
-        }
-
-        public long ID
-        {
-            get
-            {
-                return _Name.GetHashCode();
-            }
-        }
-
-        public GridVector2[] SectionToVolume(GridVector2[] Points)
-        {
-            return Transform.Transform(Points);
-        }
-
-        public GridVector2 SectionToVolume(GridVector2 P)
-        {
-            return Transform.Transform(P);
-        }
-
-        public bool[] TrySectionToVolume(GridVector2[] Points, out GridVector2[] transformedP)
-        {
-            return Transform.TryTransform(Points, out transformedP);
-        }
-
-        public bool TrySectionToVolume(GridVector2 P, out GridVector2 transformedP)
-        {
-            return Transform.TryTransform(P, out transformedP);
-        }
-
-        public bool[] TryVolumeToSection(GridVector2[] Points, out GridVector2[] transformedP)
-        {
-            return Transform.TryInverseTransform(Points, out transformedP);
-        }
-
-        public bool TryVolumeToSection(GridVector2 P, out GridVector2 transformedP)
-        {
-            return Transform.TryInverseTransform(P, out transformedP);
-        }
-
-        public GridVector2[] VolumeToSection(GridVector2[] Points)
-        {
-            return Transform.InverseTransform(Points);
-        }
-
-        public GridVector2 VolumeToSection(GridVector2 P)
-        {
-            return Transform.InverseTransform(P);
-        }
-    }
-
+     
     public class VolumeViewModel : IVolumeTransformProvider
     {
         private Volume _Volume;
@@ -117,13 +53,15 @@ namespace Viking.ViewModels
             this._Volume = volume;
             _MappingManager = new MappingManager(volume);
 
-            SectionViewModels = new SortedList<int, SectionViewModel>(_Volume.Sections.Length);
+            SectionViewModels = new SortedList<int, SectionViewModel>(_Volume.Sections.Count);
 
-            foreach (Section s in _Volume.Sections)
+            foreach (Section s in _Volume.Sections.Values)
             {
                 SectionViewModel sectionViewModel = new SectionViewModel(this, s);
                 SectionViewModels.Add(s.Number, sectionViewModel);
             }
+
+            _ActiveVolumeTransform = this.DefaultVolumeTransform;
         }
 
         public string Host { get { return _Volume.Host; } }
@@ -147,14 +85,22 @@ namespace Viking.ViewModels
         public IVolumeToSectionTransform GetSectionToVolumeTransform(int SectionNumber)
         {
             SectionViewModel svm = this.SectionViewModels[SectionNumber];
-            SortedList<int, ITransform> SectionTransforms = _Volume.Transforms[this.ActiveVolumeTransform];
-
-            if(SectionTransforms.ContainsKey(SectionNumber))
-                return new VolumeToSectionTransform(BuildTransformKey(this.ActiveVolumeTransform, SectionNumber),
-                                                    SectionTransforms[SectionNumber]);
-            else
-                return new VolumeToSectionTransform(BuildTransformKey(this.ActiveVolumeTransform, SectionNumber),
+            if (this.ActiveVolumeTransform == null)
+            {
+                return new VolumeToSectionTransform(BuildTransformKey("Identity", SectionNumber),
                                                     new Geometry.Transforms.IdentityTransform());
+            }
+            else
+            {
+                SortedList<int, ITransform> SectionTransforms = _Volume.Transforms[this.ActiveVolumeTransform];
+
+                if (SectionTransforms.ContainsKey(SectionNumber))
+                    return new VolumeToSectionTransform(BuildTransformKey(this.ActiveVolumeTransform, SectionNumber),
+                                                        SectionTransforms[SectionNumber]);
+                else
+                    return new VolumeToSectionTransform(BuildTransformKey("Identity", SectionNumber),
+                                                        new Geometry.Transforms.IdentityTransform());
+            }
         }
 
         public void ReduceCacheFootprint(object state)

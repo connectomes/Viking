@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using AnnotationVizLib.AnnotationService;
 
 namespace AnnotationVizLib
 {
@@ -17,7 +16,7 @@ namespace AnnotationVizLib
         {
             MotifDOTView DotGraph = new MotifDOTView();
 
-            DotGraph.AddAttributes(DOTAttributes.StandardGraphDOTAttributes); 
+            DotGraph.AddStandardizedAttributes(DOTAttributes.StandardGraphDOTAttributes); 
             
             foreach(MotifNode node in graph.Nodes.Values)
             {
@@ -51,7 +50,7 @@ namespace AnnotationVizLib
         {
             string label = node.Key;
 
-            DotNode.AddAttributes(DOTAttributes.StandardNodeDOTAttributes);
+            DotNode.AddStandardizedAttributes(DOTAttributes.StandardNodeDOTAttributes);
 
             DotNode.Attributes.Add("label", node.Key);
 
@@ -68,13 +67,13 @@ namespace AnnotationVizLib
             }
             else
             {
-                DotNode.AddAttributes(AttribsForLabel); 
+                DotNode.AddStandardizedAttributes(AttribsForLabel); 
             }
 
             string ToolTipStr = node.Structures.Count.ToString() + " " + node.Key + " instances: ";
 
             bool firstentry = true;
-            foreach(Structure s in node.Structures)
+            foreach(IStructure s in node.Structures)
             {
                 if (!firstentry)
                     ToolTipStr = ToolTipStr + ", ";
@@ -107,7 +106,7 @@ namespace AnnotationVizLib
             }
             else
             {
-                DotEdge.AddAttributes(EdgeAttribs); 
+                DotEdge.AddStandardizedAttributes(EdgeAttribs); 
             }
             
             arrowsize = arrowsize * (float)(Math.Sqrt(edge.Weight) * mulFactor);

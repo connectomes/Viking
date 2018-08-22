@@ -66,7 +66,7 @@ namespace AnnotationUtilsTests
         public void GenerateMotifGraph()
         { 
             AnnotationVizLib.MotifGraph graph = new MotifGraph();
-            graph = MotifGraph.BuildGraph(this.Endpoint, this.userCredentials);
+            graph = AnnotationVizLib.WCFClient.WCFMotifFactory.BuildGraph(this.Endpoint, this.userCredentials);
 
             System.Diagnostics.Debug.Assert(graph != null);
 
@@ -74,6 +74,7 @@ namespace AnnotationUtilsTests
 
             string DotFileFullPath = "C:\\Temp\\Motif.dot";
             dotGraph.SaveDOT(DotFileFullPath);
+            Assert.IsTrue(System.IO.File.Exists(DotFileFullPath));
 
             string[] Types = new string[] {"svg"};
 

@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Diagnostics;
 using System.Collections.ObjectModel;
-using WebAnnotationModel.Objects; 
+using WebAnnotationModel.Objects;
 
-using WebAnnotationModel.Service;
+using AnnotationService.Types;
 
 namespace WebAnnotationModel
 {
@@ -135,20 +135,13 @@ namespace WebAnnotationModel
         /// Add the specified name to the attributes if it does not exists, removes it 
         /// </summary>
         /// <param name="tag"></param>
-        public void ToggleAttribute(string tag)
+        public bool ToggleAttribute(string tag, string value=null)
         {
-            ObjAttribute attrib = new ObjAttribute(tag, null);
+            ObjAttribute attrib = new ObjAttribute(tag, value);
             List<ObjAttribute> listAttributes = this.Attributes.ToList();
-            if (listAttributes.Contains(attrib))
-            {
-                listAttributes.Remove(attrib);
-            }
-            else
-            {
-                listAttributes.Add(attrib);
-            }
-
+            bool InList = listAttributes.ToggleAttribute(tag, value);
             this.Attributes = listAttributes;
+            return InList;
         }
 
         public string Label

@@ -5,23 +5,28 @@ using System.Text;
 
 namespace Geometry
 {
-    public interface IPoint
-    {
-        double X { get; set; }
-        double Y { get; set; }
-        double Z { get; set; }
-    }
 
     [Serializable]
-    public struct GridVector2 : IPoint, ICloneable, IComparable, IComparable<GridVector2>, IComparer<GridVector2>
+    public struct GridVector2 : IShape2D, IPoint, ICloneable, IComparable, 
+                                IComparable<GridVector2>, IComparer<GridVector2>, IEquatable<GridVector2>,
+                                IComparable<IPoint2D>, IComparer<IPoint2D>, IEquatable<IPoint2D>
     {
+        public readonly static GridVector2 UnitX = new GridVector2(1, 0);
+        public readonly static GridVector2 UnitY = new GridVector2(0, 1);
+        public readonly static GridVector2 Zero = new GridVector2(0, 0);
+
         public double X;
         public double Y;
-        
+
         public GridVector2(double x, double y)
         {
             this.X = x;
-            this.Y = y; 
+            this.Y = y;
+        }
+
+        public GridVector3 ToGridVector3(double Z)
+        {
+            return new GridVector3(this.X, this.Y, Z);
         }
 
         /// <summary>
@@ -46,8 +51,25 @@ namespace Geometry
             return (DistanceSquared(A, B) <= EpsilonSquared);
         }
 
+        bool IEquatable<GridVector2>.Equals(GridVector2 B)
+        {
+            const double EpsilonSquared = 0.00001;
+            return (DistanceSquared(this, B) <= EpsilonSquared);
+        }
+
+        bool IEquatable<IPoint2D>.Equals(IPoint2D B)
+        {
+            const double EpsilonSquared = 0.00001;
+            return (DistanceSquared(this, B) <= EpsilonSquared);
+        }
+
+        
         public int Compare(GridVector2 A, GridVector2 B)
         {
+            //We need to use the same equality test as our epsilon value
+            if (A.Equals(B))
+                return 0;
+
             double diff = A.X - B.X;
 
             if (diff == 0.0)
@@ -62,18 +84,44 @@ namespace Geometry
 
             return 0; 
         }
-
-        int IComparable.CompareTo(Object Obj)
+        
+        public int Compare(IPoint2D A, IPoint2D B)
         {
-            GridVector2 B = (GridVector2)Obj;
+            //We need to use the same equality test as our epsilon value
+            if (A.Equals(B))
+                return 0;
 
-            return this.Compare(this, B);
+            double diff = A.X - B.X;
+
+            if (diff == 0.0)
+            {
+                diff = A.Y - B.Y;
+            }
+
+            if (diff > 0)
+                return 1;
+            if (diff < 0)
+                return -1;
+
+            return 0;
+        }
+
+        public int CompareTo(Object Obj)
+        {
+            IPoint2D B = (IPoint2D)Obj;
+
+            return Compare(this, B);
         }
 
         int IComparable<GridVector2>.CompareTo(GridVector2 B)
         {
-            return this.Compare(this, B);
+            return Compare(this, B);
         }
+         
+        public int CompareTo(IPoint2D other)
+        {
+            return Compare(this, other);
+        } 
 
         object ICloneable.Clone()
         {
@@ -100,7 +148,12 @@ namespace Geometry
 
         public override string ToString()
         {
-            return "X: " + X.ToString("F2") + "\t Y: " + Y.ToString("F2");
+            return string.Format("X: {0:F2} Y: {1:F2}", X, Y);
+        }
+
+        public string ToLabel()
+        {
+            return string.Format("{0:F2} {1:F2}", X, Y);
         }
 
         public static string ToMatlab(GridVector2[] array)
@@ -170,6 +223,14 @@ namespace Geometry
             return (dX * dX) + (dY * dY);
         }
 
+        static public double DistanceSquared(IPoint2D A, IPoint2D B)
+        {
+            double dX = A.X - B.X;
+            double dY = A.Y - B.Y;
+
+            return (dX * dX) + (dY * dY);
+        }
+
         static public double DistanceSquared(IPoint A, IPoint B)
         {
             if (A == null)
@@ -231,7 +292,7 @@ namespace Geometry
         static public double Angle(GridVector2 A, GridVector2 B)
         {
             GridVector2 delta = B - A;
-            return Math.Atan2(delta.Y, delta.X); 
+            return Math.Atan2(delta.Y, delta.X);
         }
         
         static public GridVector2 operator -(GridVector2 A)
@@ -249,14 +310,34 @@ namespace Geometry
             return new GridVector2(A.X + B.X, A.Y + B.Y); 
         }
 
+        static public GridVector2 operator -(GridVector2 A, IPoint2D B)
+        {
+            return new GridVector2(A.X - B.X, A.Y - B.Y);
+        }
+
+        static public GridVector2 operator +(GridVector2 A, IPoint2D B)
+        {
+            return new GridVector2(A.X + B.X, A.Y + B.Y);
+        }
+
         static public GridVector2 operator *(GridVector2 A, double scalar)
         {
             return new GridVector2(A.X * scalar, A.Y * scalar);
         }
 
+        static public GridVector2 operator *(GridVector2 A, GridVector2 B)
+        {
+            return new GridVector2(A.X * B.X, A.Y * B.Y);
+        }
+
         static public GridVector2 operator /(GridVector2 A, double scalar)
         {
             return new GridVector2(A.X / scalar, A.Y / scalar);
+        }
+
+        static public GridVector2 operator /(GridVector2 A, GridVector2 B)
+        {
+            return new GridVector2(A.X / B.X, A.Y / B.Y);
         }
 
         static public bool operator ==(GridVector2 A, GridVector2 B)
@@ -267,6 +348,16 @@ namespace Geometry
         static public bool operator !=(GridVector2 A, GridVector2 B)
         {
             return !GridVector2.Equals(A, B); 
+        }
+
+        static public bool operator ==(GridVector2 A, IPoint2D B)
+        {
+            return GridVector2.Equals(A, B);
+        }
+
+        static public bool operator !=(GridVector2 A, IPoint2D B)
+        {
+            return !GridVector2.Equals(A, B);
         }
 
         static public GridVector2 FromBarycentric(GridVector2 v1, GridVector2 v2, GridVector2 v3, double u, double v)
@@ -318,9 +409,98 @@ namespace Geometry
             return new GridRectangle(minX, maxX, minY, maxY);
         }
 
+        bool IShape2D.Contains(IPoint2D p)
+        {
+            return p.X == this.X && p.Y == this.Y;
+        }
+
+        bool IShape2D.Intersects(IShape2D shape)
+        {
+            return shape.Contains(this);
+        }
+
+        IShape2D IShape2D.Translate(IPoint2D offset)
+        {
+            return this + offset.Convert();
+        }
+
+        public int IsLeftSide(GridVector2[] pqr)
+        {
+            return GridVector2.IsLeftSide(this, pqr);
+        }
+
+        /// <summary>
+        /// Return true if t is on the left side of two half lines described by pqr
+        /// 
+        ///               p
+        ///              /
+        /// Right-Side  q  Left-Side
+        ///             |
+        ///             r
+        ///             
+        /// </summary>
+        /// <param name="t"></param>
+        /// <param name="pqr"></param>
+        /// <returns>1 if left
+        ///          0 if on a line
+        ///          -1 if right</returns>
+        public static int IsLeftSide(GridVector2 t, GridVector2[] pqr)
+        {
+            System.Diagnostics.Debug.Assert(pqr.Length == 3);
+
+            //Figure out which line the point projects to.
+            GridLineSegment QP = new GridLineSegment(pqr[1], pqr[0]);
+            GridLineSegment QR = new GridLineSegment(pqr[1], pqr[2]);
+
+            bool OnQP = QP.Dot(t) >= 0;
+            bool OnQR = QR.Dot(t) >= 0;
+
+            int LeftQP = -QP.IsLeft(t); //Use negative QP.IsLeft because we reversed line order
+            int LeftQR = QR.IsLeft(t); //Use not QP because we reversed line order
+
+
+            if (OnQP && OnQR)
+            {
+                //
+                //    p     r
+                //     \ t /
+                //      \ /
+                //       q
+                //
+
+                //Use not QP because we reversed line order
+                if (LeftQP == 0 || LeftQR == 0)
+                    return 0;
+
+                return LeftQP > 0 && LeftQR > 0 ? 1 : -1;
+            }
+            else if (OnQR)
+            {
+                return LeftQR;
+            }
+            else if (OnQP)
+            {
+                //Use not QP because we reversed line order
+                return LeftQP;
+            }
+            else
+            {
+                //
+                //    p     r
+                //     \   /
+                //      \ /
+                //       q
+                //
+                //    t
+                //
+
+                return -1;
+            }
+        }
+
         #region IPoint Members
 
-        double IPoint.X
+        double IPoint2D.X
         {
             get
             {
@@ -332,7 +512,7 @@ namespace Geometry
             }
         }
 
-        double IPoint.Y
+        double IPoint2D.Y
         {
             get
             {
@@ -356,8 +536,33 @@ namespace Geometry
             }
         }
 
+        GridRectangle IShape2D.BoundingBox
+        {
+            get
+            {
+                return new GridRectangle(this, 0, 0);
+            }
+        }
+
+        double IShape2D.Area
+        {
+            get
+            {
+                return 0;
+            }
+        }
+
+        ShapeType2D IShape2D.ShapeType
+        {
+            get
+            {
+                return ShapeType2D.POINT;
+            }
+        }
+         
+
         #endregion
 
-        
+
     }
 }
